@@ -25,8 +25,6 @@ const transporter = nodemailer.createTransport({
     pass: "CCeTqF48dk8uWc4PfD",
   },
 });
-console.log(process.env.EMAIL_USER);
-console.log(process.env.EMAIL_PASS);
 
 // =================================================================
 // LOCAL FILE UPLOAD (MULTER ENGINE) FOR STEP 5
