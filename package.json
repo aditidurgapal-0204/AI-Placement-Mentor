@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "pdfreader": "^3.0.8"
+  }
+}
