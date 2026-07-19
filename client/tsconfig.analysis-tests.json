@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": "node_modules/.cache/analysis-tests",
+    "rootDir": ".",
+    "types": ["node"]
+  },
+  "include": [
+    "src/lib/analysisV2Contract.ts",
+    "src/lib/analysisResponseAdapter.ts",
+    "src/lib/dashboardAnalysisCompatibility.ts",
+    "src/store/analysisStoreModel.ts",
+    "test/analysisV2Adapter.test.ts"
+  ]
+}
