@@ -11,7 +11,6 @@ interface ResumeProfileProps {
 }
 
 export default function ResumeProfile({
-  formData,
   onBack,
   onCompleteOnboarding,
   setUiError,
@@ -81,8 +80,8 @@ export default function ResumeProfile({
     setUiError("");
     try {
       await onCompleteOnboarding(isSkipped ? null : selectedFile, isSkipped);
-    } catch (err: any) {
-      setUiError(err.message || "Failed to process Step 5 operation parameters.");
+    } catch (err: unknown) {
+      setUiError(err instanceof Error ? err.message : "Failed to process Step 5 operation parameters.");
     } finally {
       setIsProcessing(false);
     }

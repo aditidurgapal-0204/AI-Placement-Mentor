@@ -95,9 +95,11 @@ test("runtime Gemini invocation receives only the presentation-safe DTO", async 
       return groundedOutput(dtoFromPrompt(prompt));
     }
   }).promise;
-  for (const key of ["internalTrace", "canonicalEvidence", "scoreLedger", "evidenceIds", "contributionIds", "scoreEffect", "technologies", "methods", "resumeText"]) {
+  for (const key of ["internalTrace", "canonicalEvidence", "scoreLedger", "evidenceIds", "contributionIds", "scoreEffect", "methods", "resumeText"]) {
     assert.equal(capturedPrompt.includes(`\"${key}\"`), false, key);
   }
+  assert.ok(capturedPrompt.includes('"projectExamples"'));
+  assert.ok(capturedPrompt.includes('"technologies"'));
 });
 
 test("career-risk and score-blocker collections remain distinct in public V2", async () => {

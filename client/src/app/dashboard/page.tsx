@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { useAnalysisStore } from "@/store/useAnalysisStore";
-import { presentStrengths } from "@/lib/strengthPresentation";
 import { selectDashboardAnalysis } from "@/lib/dashboardAnalysisCompatibility";
 
 export default function DashboardPage() {
@@ -17,30 +16,24 @@ export default function DashboardPage() {
     );
   }
 
-  const {
-    readinessScore = 0,
-    diagnosis = '',
-    weaknesses = [],
-    strengths = [],
-  } = analysis;
-  const displayedStrengths = presentStrengths(strengths, analysis.strengthFacts);
+  const readinessScore = analysis.readiness.score;
+  const diagnosis = analysis.diagnosis;
+  const weaknesses = analysis.limitations;
+  const displayedStrengths = analysis.strengths;
 
   // Compute status parameters with premium color combinations and glow states
   let riskLabel = 'Moderate Readiness';
   let riskBadgeColor = 'text-amber-400 border-amber-500/30 bg-amber-500/10 shadow-[0_0_15px_rgba(245,158,11,0.15)]';
   let strokeColor = '#f59e0b';
-  let textHighlight = 'text-amber-400/90';
 
   if (readinessScore < 45) {
     riskLabel = 'High Risk';
     riskBadgeColor = 'text-rose-400 border-rose-500/30 bg-rose-500/10 shadow-[0_0_15px_rgba(244,63,94,0.15)]';
     strokeColor = '#f43f5e';
-    textHighlight = 'text-rose-400/90';
   } else if (readinessScore >= 75) {
     riskLabel = 'Strong Readiness';
     riskBadgeColor = 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10 shadow-[0_0_15px_rgba(16,185,129,0.15)]';
     strokeColor = '#10b981';
-    textHighlight = 'text-emerald-400/90';
   }
 
   // Circular gauge math configuration
@@ -104,7 +97,7 @@ export default function DashboardPage() {
                     </span>
                   </div>
                   <p className="text-sm font-medium leading-relaxed text-slate-300 sm:text-base">
-                    You are currently at <span className={`font-semibold ${textHighlight}`}>{readinessScore}%</span> of where you need to be to confidently clear your target placement rounds.
+                    {analysis.readiness.summary}
                   </p>
                 </div>
               </div>

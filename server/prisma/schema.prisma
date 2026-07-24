@@ -8,53 +8,35 @@ datasource db {
 }
 
 model User {
-  id               String            @id @default(cuid())
-  name             String
-  email            String            @unique
-  password         String
-  createdAt        DateTime          @default(now())
-  
-  // 🚀 NEW: Step-tracking fields added here safely
-  isOnboardingComplete Boolean           @default(false)
-  currentOnboardingStep Int              @default(1) // 1 = BasicDetails, 2 = PlacementGoals
-  
-  // 1. Relation link: Tells Prisma a User can have one onboarding profile record
-  placementProfile PlacementProfile?
+  id                    String            @id @default(cuid())
+  name                  String
+  email                 String            @unique
+  password              String
+  createdAt             DateTime          @default(now())
+  currentOnboardingStep Int               @default(1)
+  isOnboardingComplete  Boolean           @default(false)
+  placementProfile      PlacementProfile?
 }
-
-// 2. The New Onboarding Parameters Table linked directly to the specific User
 
 model PlacementProfile {
-  id          String   @id @default(cuid())
-  userId      String   @unique // Foreign key linking back to the User model
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Step 1: Basic Details
-  branch      String
-  year        String
-  cgpa        Float    // Enforces precise decimal tracking (e.g., 7.90)
-  
-  // Step 2: Placement Goals
-  companyType String
-  targetRole  String
-
-  // Step 3 - Current Skills Fields
-  dsa         String   @default("") // Beginner, Intermediate, Advanced
-  dbms        String   @default("") // Beginner, Intermediate, Advanced
-  os          String   @default("") // Beginner, Intermediate, Advanced
-  networks    String   @default("") // Beginner, Intermediate, Advanced
-  aptitude    String   @default("") // Beginner, Intermediate, Advanced
-  communication String @default("") // Weak, Average, Strong
-
-// STEP 4 FIELDS
-  preparationTimelineMonths  Int?
-  dailyStudyHours            Int?
-
-// STEP 5 OPTIONAL FIELDS
-  resumeUrl                  String?
-  resumeText                 String?
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                        String   @id @default(cuid())
+  userId                    String   @unique
+  branch                    String
+  year                      String
+  cgpa                      Float
+  companyType               String
+  targetRole                String
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+  aptitude                  String   @default("")
+  communication             String   @default("")
+  dbms                      String   @default("")
+  dsa                       String   @default("")
+  networks                  String   @default("")
+  os                        String   @default("")
+  dailyStudyHours           Int?
+  preparationTimelineMonths Int?
+  resumeText                String?
+  resumeUrl                 String?
+  user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
-  

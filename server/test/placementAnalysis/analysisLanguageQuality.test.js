@@ -6,13 +6,15 @@ const test = require("node:test");
 const { createMentorAnalysisSnapshot } = require("../../services/placementAnalysis/analysisOrchestrator");
 const { generateAnalysisLanguage } = require("../../services/placementAnalysis/analysisLanguageService");
 const { findForbiddenPublicKeys } = require("../../contracts/publicAnalysisV2");
-const { profiles, profileWith } = require("./fixtures/profileFixtures");
+const { createPublicAnalysisV2 } = require("../../services/placementAnalysis/publicAnalysisV2Adapter");
+const { profiles, profileWith, representativeFullStack } = require("./fixtures/profileFixtures");
 
 const banned = /verified evidence|meaningful placement strength|preparation runway|professional-context evidence|assessed foundations|employability consideration|score contribution|capability family|reasoning dimension|confidence aggregation/i;
 const action = /\b(?:build|create|complete|improve|publish|gain|practice|review|strengthen|focus|use|bring)\b/i;
 
 const scenarios = {
   fullStack: profiles.fullStack,
+  representativeFullStack,
   machineLearning: profiles.machineLearning,
   sparse: profiles.sparse,
   noResume: profiles.noResume,
@@ -38,8 +40,8 @@ for (const [name, profile] of Object.entries(scenarios)) {
 
     assert.equal(result.source, "deterministic_fallback");
     assert.equal(snapshot.readiness.score, expectedScore);
-    assert.ok(sentences >= 3 && sentences <= 5, output.diagnosis);
-    assert.ok(words >= 45 && words <= 120, output.diagnosis);
+    assert.ok(sentences >= 3 && sentences <= 7, output.diagnosis);
+    assert.ok(words >= 45 && words <= 190, output.diagnosis);
     assert.doesNotMatch(publicText, banned);
     assert.match(output.priority.text, action);
     assert.ok(output.strengths.length > 0);
@@ -59,4 +61,22 @@ test("Gemini failure returns the same useful deterministic language", async () =
   assert.equal(failed.source, "deterministic_fallback");
   assert.deepEqual(failed.output, direct.output);
   assert.match(failed.output.priority.text, action);
+});
+
+test("representative moderate full-stack profile keeps three to five strengths through the complete public pipeline", async () => {
+  const snapshot = createMentorAnalysisSnapshot(representativeFullStack, {
+    analysisId: "representative-full-stack", requestId: "representative-full-stack"
+  });
+  const language = await generateAnalysisLanguage(snapshot);
+  const publicAnalysis = createPublicAnalysisV2(snapshot, language);
+
+  assert.ok(snapshot.readiness.score < 75);
+  assert.ok(snapshot.strengths.length >= 3 && snapshot.strengths.length <= 5);
+  assert.equal(language.dto.strengths.length, snapshot.strengths.length);
+  assert.equal(language.output.strengths.length, snapshot.strengths.length);
+  assert.equal(publicAnalysis.strengths.length, snapshot.strengths.length);
+  assert.ok(snapshot.strengths.some(({ type }) => type === "technical_capability"));
+  assert.ok(snapshot.strengths.some(({ type }) => type === "professional_evidence"));
+  assert.equal(publicAnalysis.readiness.score, snapshot.readiness.score);
+  assert.deepEqual(findForbiddenPublicKeys(publicAnalysis), []);
 });

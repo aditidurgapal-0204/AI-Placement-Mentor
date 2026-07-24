@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useAnalysisStore } from "@/store/useAnalysisStore";
+import { adaptAnalysisResponse } from "@/lib/analysisResponseAdapter";
 
 interface AnalysisStep {
   id: number;
@@ -10,7 +12,11 @@ interface AnalysisStep {
 }
 
 function AnalysisContent() {
+  const analysisStartedRef = useRef(false);
   const router = useRouter();
+  const acceptAnalysisResponse = useAnalysisStore((state) => state.acceptAnalysisResponse);
+  const beginAnalysis = useAnalysisStore((state) => state.beginAnalysis);
+  const failAnalysis = useAnalysisStore((state) => state.failAnalysis);
   const searchParams = useSearchParams();
   
   // Extract state: check if the query string explicitly says 'true'
@@ -18,9 +24,12 @@ function AnalysisContent() {
 
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
   const [steps, setSteps] = useState<AnalysisStep[]>([]);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   // 🚀 INITIALIZE DYNAMIC TEXT PARAMETERS
   useEffect(() => {
+    // Existing step animation initializes from the current route mode.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSteps([
       { id: 1, label: "Understanding skill levels", status: "loading" },
       { 
@@ -36,27 +45,41 @@ function AnalysisContent() {
   }, [isSkipped]);
 
   useEffect(() => {
-    const triggerBackendAnalysis = async () => {
-      try {
-        const response = await fetch("http://localhost:8000/api/ai/generate-analysis", {
+  if (analysisStartedRef.current) return;
+  analysisStartedRef.current = true;
+
+  const triggerBackendAnalysis = async () => {
+    const requestId = crypto.randomUUID();
+    beginAnalysis(requestId);
+    try {
+      const response = await fetch(
+        "http://localhost:8000/api/ai/generate-analysis",
+        {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${localStorage.getItem("token")}`,
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            "X-Request-ID": requestId,
           },
-        });
-        if (!response.ok) console.warn("Using visual fallback timing parameter setup.");
-      } catch (err) {
-        console.error("Network interface connection error:", err);
-      } finally {
-        setTimeout(() => {
-          router.push("/dashboard");
-        }, 4200); 
-      }
-    };
+        }
+      );
 
-    triggerBackendAnalysis();
-  }, [router]);
+      const data: unknown = await response.json();
+
+      if (!response.ok) {
+        throw new Error("Your placement analysis could not be generated.");
+      }
+
+      const adapted = adaptAnalysisResponse(data);
+      if (acceptAnalysisResponse(requestId, adapted)) router.push("/dashboard");
+    } catch (err) {
+      console.error("Network interface connection error:", err);
+      if (failAnalysis(requestId)) setAnalysisError("We couldn’t generate a new analysis. Please try again.");
+    }
+  };
+
+  triggerBackendAnalysis();
+}, [router, acceptAnalysisResponse, beginAnalysis, failAnalysis]);
 
   useEffect(() => {
     if (steps.length === 0 || currentStepIndex >= steps.length) return;
@@ -157,6 +180,12 @@ function AnalysisContent() {
             </span>
           </div>
         </div>
+
+        {analysisError && (
+          <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-center text-sm text-rose-200">
+            {analysisError}
+          </p>
+        )}
 
       </div>
     </div>

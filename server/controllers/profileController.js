@@ -1,6 +1,5 @@
 // server/controllers/profileController.js
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require("../lib/prisma");
 
 exports.savePlacementProfile = async (req, res) => {
   try {

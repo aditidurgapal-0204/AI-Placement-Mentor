@@ -29,7 +29,10 @@ const v2 = () => ({
   preparation: { feasibility: "strong", improvementPotential: "strong_capacity_for_focused_improvement" },
   context: { targetRole: "Backend Developer", companyType: "Product Based", timelineMonths: 6, dailyStudyHours: 5, resumeProvided: true }
 });
-const envelope = (analysisV2: unknown = v2(), analysis: unknown = legacy()) => ({ success: true, analysis, analysisV2, profileData: { id: "profile-1" } });
+const envelope = (analysisV2: unknown = v2(), analysis: unknown = legacy()) => ({
+  success: true, analysis, analysisV2,
+  profileData: { id: "profile-1", branch: "CSE", resumeText: "private resume", resumeAvailable: true }
+});
 
 test("valid analysisV2 is parsed into a new normalized object with ordering preserved", () => {
   const input = v2();
@@ -46,6 +49,7 @@ test("valid legacy and V2 are stored separately", () => {
   assert.equal(accepted.legacyAnalysis?.readinessScore, 49);
   assert.equal(accepted.analysisV2?.analysisId, "analysis-v2");
   assert.notEqual(accepted.analysis, adapted.legacyAnalysis);
+  assert.equal(JSON.stringify(accepted.profileData).includes("resumeText"), false);
 });
 
 test("missing analysisV2 preserves legacy behavior", () => {
@@ -151,10 +155,11 @@ for (const source of ["deterministic_fallback", "gemini"] as const) {
 }
 
 test("persisted legacy state migrates without loss and remains dashboard-readable", () => {
-  const migrated = migrateAnalysisPersistedState({ analysis: legacy(), profileData: { id: "profile-old" }, activeRequestId: "obsolete" });
+  const migrated = migrateAnalysisPersistedState({ analysis: legacy(), profileData: { id: "profile-old", branch: "CSE", resumeText: "old private resume" }, activeRequestId: "obsolete" });
   assert.deepEqual(migrated.analysis, legacy());
   assert.deepEqual(migrated.legacyAnalysis, legacy());
-  assert.deepEqual(migrated.profileData, { id: "profile-old" });
+  assert.equal((migrated.profileData as { branch?: string }).branch, "CSE");
+  assert.equal(JSON.stringify(migrated.profileData).includes("resumeText"), false);
   assert.equal(migrated.latestRequestedRequestId, null);
 });
 
@@ -168,18 +173,24 @@ test("corrupted persisted V2 is discarded safely without erasing legacy state", 
 test("dashboard compatibility prefers V2 language without exposing insight IDs", () => {
   const source = parseAnalysisV2(v2());
   const dashboard = selectDashboardAnalysis(legacy(), source);
-  assert.equal(dashboard?.readinessScore, source.readiness.score);
+  assert.equal(dashboard?.readiness.score, source.readiness.score);
+  assert.equal(dashboard?.readiness.summary, source.readiness.explanation);
   assert.equal(dashboard?.diagnosis, source.diagnosis);
   assert.deepEqual(dashboard?.strengths, source.strengths.map(({ text }) => text));
-  assert.equal(dashboard?.weaknesses[0], `First priority: ${source.firstPriority.text}`);
-  assert.ok(dashboard?.weaknesses.includes(source.scoreBlockers[0].text));
-  assert.ok(dashboard?.weaknesses.includes(source.careerRisks[0].text));
-  assert.deepEqual(Object.keys(dashboard || {}).sort(), ["diagnosis", "readinessScore", "strengths", "weaknesses"]);
+  assert.equal(dashboard?.firstPriority, source.firstPriority.text);
+  assert.ok(dashboard?.limitations.includes(source.scoreBlockers[0].text));
+  assert.ok(dashboard?.limitations.includes(source.careerRisks[0].text));
+  assert.equal(dashboard?.limitations.some((text) => /^first priority:/i.test(text)), false);
+  assert.deepEqual(Object.keys(dashboard || {}).sort(), ["context", "diagnosis", "firstPriority", "limitations", "readiness", "strengths"]);
 });
 
 test("dashboard compatibility preserves legacy analysis when V2 is unavailable", () => {
   const source = legacy();
-  assert.equal(selectDashboardAnalysis(source, null), source);
+  const dashboard = selectDashboardAnalysis(source, null);
+  assert.equal(dashboard?.readiness.score, source.readinessScore);
+  assert.deepEqual(dashboard?.strengths, source.strengths);
+  assert.deepEqual(dashboard?.limitations, source.weaknesses);
+  assert.equal(dashboard?.firstPriority, null);
 });
 
 test("dashboard compatibility removes duplicate public limitations without mutating V2", () => {
@@ -187,8 +198,43 @@ test("dashboard compatibility removes duplicate public limitations without mutat
   source.careerRisks[0].text = source.scoreBlockers[0].text;
   const before = structuredClone(source);
   const dashboard = selectDashboardAnalysis(legacy(), source);
-  assert.equal(dashboard?.weaknesses.filter((text) => text === source.scoreBlockers[0].text).length, 1);
+  assert.equal(dashboard?.limitations.filter((text) => text === source.scoreBlockers[0].text).length, 1);
   assert.deepEqual(source, before);
+});
+
+test("dashboard presentation keeps First Priority distinct and limits semantic limitations to three", () => {
+  const source = parseAnalysisV2({
+    ...v2(),
+    firstPriority: { ...v2().firstPriority, text: "Complete three focused DSA sessions and one core-subject review every week." },
+    scoreBlockers: [
+      { id: "blocker-1", text: "Core interview preparation needs more consistency. Complete three DSA sessions every week." },
+      { id: "blocker-2", text: "Your project work needs stronger testing and deployment. Improve one project with both." }
+    ],
+    careerRisks: [
+      { id: "risk-1", text: "Weak preparation depth may affect interviews. Complete regular DSA sessions every week." },
+      { id: "risk-2", text: "Recruiters need clearer proof of teamwork. Complete one team engineering contribution." },
+      { id: "risk-3", text: "Your portfolio is difficult to review. Publish one project with a clear README." }
+    ]
+  });
+  const dashboard = selectDashboardAnalysis(legacy(), source);
+  assert.equal(dashboard?.firstPriority, source.firstPriority.text);
+  assert.ok((dashboard?.limitations.length || 0) <= 3);
+  assert.equal(dashboard?.limitations.some((text) => text === source.firstPriority.text), false);
+  assert.equal(dashboard?.limitations.some((text) => /DSA sessions every week/i.test(text)), false);
+});
+
+test("representative public V2 strengths survive client validation and dashboard presentation", () => {
+  const texts = [
+    "Your projects show that you can work across the frontend, backend, and database, which is valuable for Full-Stack Engineer roles.",
+    "Your interface work shows that you can build responsive experiences for users, which supports frontend responsibilities in the target role.",
+    "Your deployed portfolio shows that you can finish and publish working software, making your work easier for recruiters to review.",
+    "Your navigation project demonstrates practical problem-solving by applying routing concepts to a clear user need.",
+    "Your coordination and public-speaking experience show leadership and communication beyond individual technical work."
+  ];
+  const source = parseAnalysisV2({ ...v2(), strengths: texts.map((text, index) => ({ id: `strength-${index + 1}`, text })) });
+  const dashboard = selectDashboardAnalysis(legacy(), source);
+  assert.deepEqual(dashboard?.strengths, texts);
+  assert.equal(dashboard?.strengths.length, 5);
 });
 
 test("restored dashboard visual structure remains unchanged", () => {
@@ -199,4 +245,5 @@ test("restored dashboard visual structure remains unchanged", () => {
   ]) assert.ok(page.includes(marker), marker);
   assert.equal(page.includes("ReadinessOverview"), false);
   assert.equal(page.includes("InsightListSection"), false);
+  assert.ok(page.includes("displayedStrengths.length > 0"));
 });

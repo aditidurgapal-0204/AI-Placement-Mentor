@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:analysis": "tsc -p tsconfig.analysis-tests.json && node --test node_modules/.cache/analysis-tests/test/analysisV2Adapter.test.js"
   },
   "dependencies": {
     "lucide-react": "^1.16.0",

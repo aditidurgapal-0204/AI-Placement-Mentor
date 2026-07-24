@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useAuthStore } from '@/store/useAuthStore';
 import LoginForm from '@/components/LoginForm';
 import SignupForm from '@/components/SignupForm';
@@ -531,9 +532,9 @@ export default function Home() {
               <ul className="space-y-3 text-gray-400">
 
                 <li>
-                  <a href="/" className="hover:text-purple-300 transition-colors">
+                  <Link href="/" className="hover:text-purple-300 transition-colors">
                     Home
-                  </a>
+                  </Link>
                 </li>
 
                 <li>

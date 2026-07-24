@@ -1,10 +1,11 @@
-const { PrismaClient } = require("@prisma/client");
+const prisma = require("../lib/prisma");
 const geminiService = require("../services/geminiService");
-
-const prisma = new PrismaClient();
+const productionAnalysisService = require("../services/placementAnalysis/productionAnalysisService");
+const { randomUUID } = require("node:crypto");
 
 // POST /api/ai/generate-analysis
 const generateAnalysis = async (req, res) => {
+  const requestId = req.get("X-Request-ID") || randomUUID();
   try {
     // 1. Extract the validated user ID from your authMiddleware payload
     const userId = req.user.userId;
@@ -75,9 +76,12 @@ const generateAnalysis = async (req, res) => {
     };
 
     // 7. 🚀 DELEGATE PIPELINE TO SERVICE CORE: Keeps prompt engineering out of the controller
-    const aiAnalysisResult = await geminiService.analyzePlacementProfile(packedProfileData);
+    console.info("Placement analysis request received", { requestId, userId });
+    const { analysis: aiAnalysisResult, analysisV2 } = await productionAnalysisService
+      .analyzePlacementProfileV2(packedProfileData, { requestId });
 
     // 8. Return structured production JSON response format carrying the AI service output
+    console.info("Placement analysis response returned", { requestId, userId });
     return res.status(200).json({
       success: true,
       userFound: true,
@@ -85,8 +89,8 @@ const generateAnalysis = async (req, res) => {
       resumeUploaded: hasResumeUrl,
       resumeTextAvailable: hasResumeText,
       analysis: aiAnalysisResult, // 🧠 Contains readinessScore, strengths, weaknesses, etc.
+      analysisV2,
       profileData: {
-        id: profile.id,
         branch: profile.branch,
         year: profile.year,
         cgpa: profile.cgpa,
@@ -94,13 +98,15 @@ const generateAnalysis = async (req, res) => {
         targetRole: profile.targetRole,
         skills: packedProfileData.skills,
         timeline: packedProfileData.timeline,
-        resumeText: profile.resumeText, 
-        createdAt: profile.createdAt,
+        resumeAvailable: hasResumeText,
       },
     });
 
   } catch (error) {
-    console.error("❌ Core Data Aggregation System Failure:", error);
+    console.error("Placement analysis request failed", {
+      requestId,
+      message: error.message
+    });
     return res.status(500).json({
       success: false,
       message: "Internal server error occurred while retrieving onboarding context profiles and generating AI analysis.",

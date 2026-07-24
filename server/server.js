@@ -19,6 +19,10 @@ app.get("/", (req, res) => {
 
 const PORT = 8000;
 
-app.listen(PORT, () => {
+app.listen(PORT, (error) => {
+  if (error) {
+    console.error(`Unable to start server on port ${PORT}: ${error.code || error.message}`);
+    return;
+  }
   console.log(`Server running on port ${PORT}`);
 });

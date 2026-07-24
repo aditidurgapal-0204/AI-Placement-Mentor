@@ -11,6 +11,7 @@ const fs = require("fs");
 
 const prisma = require("../lib/prisma");
 const authMiddleware = require("../middleware/authMiddleware");
+const { signup } = require("../controllers/signupController");
 
 const router = express.Router();
 
@@ -64,58 +65,7 @@ router.get("/test", (req, res) => {
   res.send("Auth Route Working");
 });
 
-router.post("/signup", async (req, res) => {
-  try {
-    const { name, email, password } = req.body;
-
-    if (!name || !name.trim() || !email || !email.trim() || !password || !password.trim()) {
-      return res.status(400).json({
-        message: "All fields (Full Name, Email, Password) are required and cannot be empty.",
-      });
-    }
-
-    const existingUser = await prisma.user.findUnique({
-      where: { email: email.trim() },
-    });
-
-    if (existingUser) {
-      return res.status(400).json({ message: "User already exists" });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const newUser = await prisma.user.create({
-      data: {
-        name: name.trim(),
-        email: email.trim().toLowerCase(),
-        password: hashedPassword,
-        currentOnboardingStep: 1,
-        isOnboardingComplete: false
-      },
-    });
-
-    const token = jwt.sign(
-      { userId: newUser.id },
-      "secretkey",
-      { expiresIn: "7d" }
-    );
-
-    res.status(201).json({
-      message: "User created successfully",
-      token,
-      user: {
-        id: newUser.id,
-        name: newUser.name,
-        email: newUser.email,
-        isOnboardingComplete: false,
-        currentOnboardingStep: 1
-      },
-    });
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({ message: "Server Error" });
-  }
-});
+router.post("/signup", signup);
 
 router.post("/login", async (req, res) => {
   try {
@@ -446,21 +396,50 @@ router.post("/save-resume-step", authMiddleware, upload.single('resume'), async 
     if (req.file && isSkipped !== 'true') {
       resumeUrl = `/uploads/resumes/${req.file.filename}`;
       
-      const textRows = [];
-      await new Promise((resolve, reject) => {
-    
-        new PdfReader().parseFileItems(req.file.path, (err, item) => {
-          if (err) {
-            reject(err);
-          } else if (!item) {
-            resolve(true); // End of file reached cleanly
-          } else if (item.text) {
-            textRows.push(item.text);
-          }
-        });
-      });
+      const rows = {};
 
-      resumeText = textRows.join(" ").trim();
+await new Promise((resolve, reject) => {
+
+  new PdfReader().parseFileItems(req.file.path, (err, item) => {
+
+    if (err) {
+      reject(err);
+      return;
+    }
+
+    if (!item) {
+      resolve(true);
+      return;
+    }
+
+    if (item.text) {
+
+      const y = item.y.toFixed(1);
+
+      if (!rows[y]) {
+        rows[y] = [];
+      }
+
+      rows[y].push({
+        x: item.x,
+        text: item.text
+      });
+    }
+
+  });
+
+});
+
+// Reconstruct lines in reading order
+resumeText = Object.keys(rows)
+  .sort((a, b) => parseFloat(a) - parseFloat(b))
+  .map(y =>
+    rows[y]
+      .sort((a, b) => a.x - b.x)
+      .map(i => i.text)
+      .join(" ")
+  )
+  .join("\n");
     }
 
     await prisma.placementProfile.update({

@@ -10,14 +10,13 @@ const snapshotFor = (profile, suffix) => createMentorAnalysisSnapshot(profile, {
   createdAt: "2026-07-20T00:00:00.000Z"
 });
 
-test("mentor strengths group verified evidence into generalized conclusions", () => {
+test("mentor strengths preserve selected concrete evidence without losing deterministic grouping", () => {
   const fullStack = snapshotFor(profiles.fullStack, "full-stack");
   const machineLearning = snapshotFor(profiles.machineLearning, "ml");
 
-  assert.ok(fullStack.strengths.some(({ conclusion }) => /complete applications across the user interface, server, and data layers/i.test(conclusion)));
-  assert.ok(machineLearning.strengths.some(({ conclusion }) => /machine-learning techniques in practical projects/i.test(conclusion)));
-  assert.equal(fullStack.strengths.some(({ conclusion }) => /react|postgresql|commerce platform/i.test(conclusion)), false);
-  assert.equal(machineLearning.strengths.some(({ conclusion }) => /collaborative filtering|recommendation engine/i.test(conclusion)), false);
+  assert.ok(fullStack.strengths.some(({ supportingFacts }) => supportingFacts.projectExamples.some(({ name }) => /commerce platform/i.test(name))));
+  assert.ok(machineLearning.strengths.some(({ supportingFacts }) => supportingFacts.projectExamples.some(({ name }) => /recommendation engine/i.test(name))));
+  assert.ok(fullStack.strengths.every(({ internalTrace }) => internalTrace.evidenceIds.length > 0));
 });
 
 test("score drivers trace only to positive deterministic contributions", () => {

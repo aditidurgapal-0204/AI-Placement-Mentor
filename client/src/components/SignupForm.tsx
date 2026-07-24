@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 // 🚀 1. IMPORT THE ROUTER HOOK
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -19,10 +19,27 @@ export default function SignupForm() {
   
   const [signupError, setSignupError] = useState("");
   const [signupSuccess, setSignupSuccess] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submissionInProgress = useRef(false);
 
-  const handleSignup = async () => {
+  const clearMessages = () => {
     setSignupError("");
     setSignupSuccess("");
+  };
+
+  const handleClose = () => {
+    clearMessages();
+    closeModal();
+  };
+
+  const handleFieldChange = (setter: (value: string) => void, value: string) => {
+    clearMessages();
+    setter(value);
+  };
+
+  const handleSignup = async () => {
+    if (submissionInProgress.current) return;
+    clearMessages();
 
     if (!signupName.trim() || !signupEmail.trim() || !signupPassword.trim()) {
       setSignupError("Please fill in all the required fields before signing up.");
@@ -47,6 +64,8 @@ export default function SignupForm() {
       return;
     }
 
+    submissionInProgress.current = true;
+    setIsSubmitting(true);
     try {
       const response = await fetch("http://localhost:8000/api/auth/signup", {
         method: "POST",
@@ -60,7 +79,7 @@ export default function SignupForm() {
         }),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (response.ok || response.status === 201) {
         setSignupSuccess(data.message || "User created successfully!");
@@ -79,20 +98,27 @@ export default function SignupForm() {
         setSignupName("");
         setSignupEmail("");
         setSignupPassword("");
+        setSignupError("");
         
         setTimeout(() => {
-          closeModal();
+          handleClose();
           router.push("/setup");
         }, 1200);
       }
 
       else {
-        setSignupError(data.message || "Registration failed. Please try again.");
+        const safeBackendMessage = typeof data.message === "string" ? data.message : "";
+        if (response.status === 400 || response.status === 409 || response.status === 503) {
+          setSignupError(safeBackendMessage || "Signup could not be completed. Please check your details and try again.");
+        } else {
+          setSignupError("Server error. Please try again later.");
+        }
       }
-      console.log(data);
-    } catch (error) {
-      console.log(error);
-      setSignupError("Signup failed. Server connection error.");
+    } catch {
+      setSignupError("Unable to connect to the server. Please try again.");
+    } finally {
+      submissionInProgress.current = false;
+      setIsSubmitting(false);
     }
   };
 
@@ -103,7 +129,7 @@ export default function SignupForm() {
         style={{ width: '420px', padding: '40px 32px', boxSizing: 'border-box' }}
       >
         <button
-          onClick={closeModal}
+          onClick={handleClose}
           className="absolute text-gray-500 hover:text-white transition-colors"
           style={{ top: '24px', right: '24px', background: 'transparent', border: 'none', cursor: 'pointer' }}
         >
@@ -156,7 +182,7 @@ export default function SignupForm() {
               type="text"
               placeholder="Enter your full name"
               value={signupName}
-              onChange={(e) => setSignupName(e.target.value)}
+              onChange={(e) => handleFieldChange(setSignupName, e.target.value)}
               className="placeholder-gray-500 text-white focus:outline-none transition-all"
               style={{ width: '100%', height: '48px', borderRadius: '12px', border: '1px solid rgba(147, 51, 234, 0.25)', backgroundColor: '#0c071b', padding: '0 16px', fontSize: '14px', boxSizing: 'border-box' }}
             />
@@ -170,7 +196,7 @@ export default function SignupForm() {
               placeholder="Enter your email"
               className="placeholder-gray-500 text-white focus:outline-none transition-all"
               value={signupEmail}
-              onChange={(e) => setSignupEmail(e.target.value)}
+              onChange={(e) => handleFieldChange(setSignupEmail, e.target.value)}
               style={{ width: '100%', height: '48px', borderRadius: '12px', border: '1px solid rgba(147, 51, 234, 0.25)', backgroundColor: '#0c071b', padding: '0 16px', fontSize: '14px', boxSizing: 'border-box' }}
             />
           </div>
@@ -183,7 +209,7 @@ export default function SignupForm() {
               placeholder="Create a password"
               className="placeholder-gray-500 text-white focus:outline-none transition-all"
               value={signupPassword}
-              onChange={(e) => setSignupPassword(e.target.value)}
+              onChange={(e) => handleFieldChange(setSignupPassword, e.target.value)}
               style={{ width: '100%', height: '48px', borderRadius: '12px', border: '1px solid rgba(147, 51, 234, 0.25)', backgroundColor: '#0c071b', padding: '0 16px', fontSize: '14px', boxSizing: 'border-box' }}
             />
           </div>
@@ -191,10 +217,11 @@ export default function SignupForm() {
           <button
             onClick={handleSignup}
             type="submit"
+            disabled={isSubmitting}
             className="bg-gradient-to-r from-purple-500 to-blue-500 font-semibold text-white shadow-md shadow-purple-500/20 hover:opacity-95 active:scale-[0.99] transition-all"
             style={{ width: '100%', height: '48px', borderRadius: '12px', fontSize: '15px', border: 'none', cursor: 'pointer', marginTop: '12px' }}
           >
-            Sign up
+            {isSubmitting ? "Signing up..." : "Sign up"}
           </button>
         </form>
 
@@ -202,7 +229,7 @@ export default function SignupForm() {
           <p style={{ fontSize: '13px', color: '#94a3b8', margin: 0 }}>
             Already have an account?{" "}
             <button
-              onClick={() => setView('LOGIN')}
+              onClick={() => { clearMessages(); setView('LOGIN'); }}
               className="text-purple-400 hover:text-purple-300 font-medium transition-colors"
               style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
             >
