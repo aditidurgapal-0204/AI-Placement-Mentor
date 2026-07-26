@@ -4,8 +4,9 @@ const { buildCanonicalEvidence } = require("./canonicalEvidenceService");
 const { validateCanonicalEvidence } = require("./evidenceValidationService");
 const { buildMentorReasoning } = require("./mentorReasoningService");
 const { validateMentorAnalysisV2, SCHEMA_VERSION } = require("../../contracts/mentorAnalysis.v2");
+const { studyStageFor } = require("./studentStage");
 
-const REASONING_MODEL_VERSION = "mentor-reasoning-1.0";
+const REASONING_MODEL_VERSION = "mentor-reasoning-1.1";
 
 const deepFreeze = (value) => {
   if (!value || typeof value !== "object" || Object.isFrozen(value)) return value;
@@ -41,6 +42,8 @@ const createMentorAnalysisSnapshot = (profileData, options = {}) => {
   const context = {
     targetRole: profileData.targetRole,
     companyType: profileData.companyType,
+    year: profileData.year,
+    studyStage: studyStageFor(profileData.year),
     timelineMonths: readiness.extractedMetrics.timelineMonths,
     dailyStudyHours: readiness.extractedMetrics.dailyStudyHours,
     resumeProvided: readiness.extractedMetrics.resumeEvaluated

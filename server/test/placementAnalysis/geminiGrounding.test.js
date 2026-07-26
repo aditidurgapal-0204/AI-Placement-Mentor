@@ -64,6 +64,16 @@ test("grounding rejects invented, missing, duplicated, and reordered insight ide
   });
 });
 
+test("grounding rejects duplicated wording across insight cards", () => {
+  const output = validOutput();
+  output.scoreBlockers.push({ insightId: "blocker-duplicate", text: output.scoreBlockers[0].text });
+  const input = validGeminiInput();
+  input.scoreBlockers.push({ ...input.scoreBlockers[0], id: "blocker-duplicate" });
+  const result = validateGeminiGrounding(output, input);
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((error) => error.includes("must not repeat identical insight text")));
+});
+
 test("grounding rejects numeric claims that are absent from the backend DTO", () => {
   const output = validOutput();
   output.diagnosis += " This will improve readiness by 17 points.";

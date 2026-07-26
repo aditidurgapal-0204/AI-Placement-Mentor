@@ -7,6 +7,13 @@ const {
 const labelFor = (key) =>
   READINESS_LABELS.bands.find((band) => band.key === key)?.label || key;
 
+const readinessExplanation = (snapshot) => {
+  if (snapshot.context.studyStage === "early_stage") {
+    return `This is an early-stage foundation assessment for ${snapshot.context.targetRole}; it reflects the evidence available today, not a final-placement prediction.`;
+  }
+  return `This ${labelFor(snapshot.readiness.labelKey).toLowerCase()} result reflects the role target, current preparation, academic record, and verified evidence available in the profile.`;
+};
+
 const publicLanguageInsight = (item) => ({
   id: item.insightId,
   text: item.text
@@ -34,6 +41,7 @@ const createPublicAnalysisV2 = (snapshot, language) => {
       score: snapshot.readiness.score,
       label: labelFor(snapshot.readiness.labelKey),
       labelKey: snapshot.readiness.labelKey,
+      explanation: readinessExplanation(snapshot),
 
       nextLevel: {
         label: labelFor(snapshot.readiness.nextLabelKey),
@@ -64,6 +72,8 @@ const createPublicAnalysisV2 = (snapshot, language) => {
     context: {
       targetRole: snapshot.context.targetRole,
       companyType: snapshot.context.companyType,
+      year: snapshot.context.year,
+      studyStage: snapshot.context.studyStage,
       timelineMonths: snapshot.context.timelineMonths,
       dailyStudyHours: snapshot.context.dailyStudyHours,
       resumeProvided: snapshot.context.resumeProvided
@@ -81,4 +91,4 @@ const createPublicAnalysisV2 = (snapshot, language) => {
   return response;
 };
 
-module.exports = { createPublicAnalysisV2 };
+module.exports = { createPublicAnalysisV2, readinessExplanation };

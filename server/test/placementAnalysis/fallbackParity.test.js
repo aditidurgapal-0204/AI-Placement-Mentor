@@ -13,6 +13,7 @@ const buildSnapshot = () => createMentorAnalysisSnapshot(profiles.machineLearnin
 });
 
 const groundedDiagnosis = "You have a useful base for your selected role and your strongest work already supports your preparation. The clearest strength is the practical capability shown in your current profile. One important gap is still limiting how ready you are for placement rounds. Address the first priority through regular focused work, while continuing to improve the strengths that already support your application.";
+const groundedInsight = ({ id, type }) => `The ${String(type).replace(/_/g, " ")} insight (${id}) is based on the supplied profile evidence.`;
 
 test("deterministic fallback preserves every backend-selected insight and its ordering", async () => {
   const result = await generateAnalysisLanguage(buildSnapshot());
@@ -37,10 +38,10 @@ test("valid generated language is accepted without allowing the model to alter s
   const result = await generateAnalysisLanguage(buildSnapshot(), async ({ dto }) => ({
     analysisId: dto.analysisId,
     diagnosis: groundedDiagnosis,
-    strengths: dto.strengths.map(({ id, conclusion }) => ({ insightId: id, text: conclusion })),
-    scoreBlockers: dto.scoreBlockers.map(({ id, conclusion }) => ({ insightId: id, text: conclusion })),
-    careerRisks: dto.careerRisks.map(({ id, conclusion }) => ({ insightId: id, text: conclusion })),
-    priority: { insightId: dto.priority.id, text: dto.priority.objective }
+    strengths: dto.strengths.map((item) => ({ insightId: item.id, text: groundedInsight(item) })),
+    scoreBlockers: dto.scoreBlockers.map((item) => ({ insightId: item.id, text: groundedInsight(item) })),
+    careerRisks: dto.careerRisks.map((item) => ({ insightId: item.id, text: groundedInsight(item) })),
+    priority: { insightId: dto.priority.id, text: "Focus on improving the most important supplied gap." }
   }));
   assert.equal(result.source, "gemini");
 });

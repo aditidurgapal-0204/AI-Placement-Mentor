@@ -1,4 +1,5 @@
 const { MENTOR_REASONING_RULES } = require("../../configs/mentorReasoningRules.v1");
+const { CANONICAL_EVIDENCE_VERSION } = require("./canonicalEvidenceService");
 
 const ALLOWED_DOMAINS = new Set(["profile", "resume"]);
 const ALLOWED_TYPES = new Set([
@@ -29,7 +30,9 @@ const validateEvidenceItem = (item) => {
 const validateCanonicalEvidence = (model) => {
   const errors = [];
   if (!model || typeof model !== "object" || Array.isArray(model)) return { valid: false, errors: ["canonical model must be an object"] };
-  if (model.version !== "1.0") errors.push("canonical evidence version must be 1.0");
+  if (model.version !== CANONICAL_EVIDENCE_VERSION) {
+    errors.push(`canonical evidence version must be ${CANONICAL_EVIDENCE_VERSION}`);
+  }
   if (!model.assessment || !["assessed", "not_assessed"].includes(model.assessment.resumeStatus)) {
     errors.push("assessment.resumeStatus is invalid");
   }

@@ -1,4 +1,4 @@
-const VERSION = "1.0";
+const VERSION = "1.1";
 
 const MENTOR_REASONING_RULES = Object.freeze({
   affectsReadinessScore: false,
@@ -11,8 +11,15 @@ const MENTOR_REASONING_RULES = Object.freeze({
     }
   },
   strengths: {
-    minimum: 1,
-    maximum: 6,
+    minimum: 0,
+    maximum: 3,
+    qualification: {
+      minimumAcademicCgpa: 8,
+      minimumProjectCapabilityCount: 2,
+      acceptedProjectComplexities: ["intermediate", "advanced"],
+      acceptedProjectRelevance: ["medium", "high"],
+      acceptedSelfAssessedLevels: ["advanced", "strong"]
+    },
     grouping: {
       requireSharedCapabilityOrSource: true,
       maximumPublicEvidenceSummaries: 1
@@ -26,8 +33,8 @@ const MENTOR_REASONING_RULES = Object.freeze({
     }
   },
   blockers: {
-    maximumScoreBlockers: 6,
-    maximumCareerRisks: 6,
+    maximumScoreBlockers: 5,
+    maximumCareerRisks: 5,
     scoreBlockerRequiresNegativeContribution: true,
     careerRiskRequiresScoreContribution: false
   },

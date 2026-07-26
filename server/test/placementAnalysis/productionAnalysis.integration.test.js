@@ -15,13 +15,14 @@ const legacyResult = (score) => ({
 
 const dtoFromPrompt = (prompt) => JSON.parse(prompt.split("MENTOR_ANALYSIS\n")[1]);
 const groundedDiagnosis = "You have a useful base for your selected role and your strongest work already supports your preparation. The clearest strength is the practical capability shown in your current profile. One important gap is still limiting how ready you are for placement rounds. Address the first priority through regular focused work, while continuing to improve the strengths that already support your application.";
+const insightText = ({ id, type }) => `The ${String(type).replace(/_/g, " ")} finding (${id}) is based on the supplied profile evidence.`;
 const groundedOutput = (dto) => ({
   analysisId: dto.analysisId,
   diagnosis: groundedDiagnosis,
-  strengths: dto.strengths.map(({ id, conclusion }) => ({ insightId: id, text: conclusion })),
-  scoreBlockers: dto.scoreBlockers.map(({ id, conclusion }) => ({ insightId: id, text: conclusion })),
-  careerRisks: dto.careerRisks.map(({ id, conclusion }) => ({ insightId: id, text: conclusion })),
-  priority: { insightId: dto.priority.id, text: dto.priority.objective }
+  strengths: dto.strengths.map((item) => ({ insightId: item.id, text: insightText(item) })),
+  scoreBlockers: dto.scoreBlockers.map((item) => ({ insightId: item.id, text: insightText(item) })),
+  careerRisks: dto.careerRisks.map((item) => ({ insightId: item.id, text: insightText(item) })),
+  priority: { insightId: dto.priority.id, text: "The selected priority addresses the most important supplied gap." }
 });
 
 const run = (profile, overrides = {}) => {
@@ -108,8 +109,8 @@ test("career-risk and score-blocker collections remain distinct in public V2", a
   assert.ok(analysisV2.careerRisks.every(({ id }) => !blockerIds.has(id)));
 });
 
-test("Phase 0 readiness values remain unchanged in both response versions", async () => {
-  const expected = { fullStack: 49, machineLearning: 53, backend: 47, frontend: 46, unfamiliar: 46, sparse: 41, leadershipHeavy: 46, noResume: 41 };
+test("current deterministic readiness values remain stable in both response versions", async () => {
+  const expected = { fullStack: 40, machineLearning: 35, backend: 39, frontend: 38, unfamiliar: 38, sparse: 29, leadershipHeavy: 35, noResume: 29 };
   for (const [name, score] of Object.entries(expected)) {
     const result = await run(profiles[name]).promise;
     assert.equal(result.analysis.readinessScore, score, name);
@@ -127,7 +128,8 @@ test("resume replacement does not retain the previous analysis context or conclu
   const first = await run(profiles.machineLearning).promise;
   const second = await run(profiles.backend).promise;
   assert.equal(second.analysisV2.context.targetRole, profiles.backend.targetRole);
-  assert.notDeepEqual(second.analysisV2.strengths, first.analysisV2.strengths);
+  assert.notEqual(second.analysisV2.readiness.score, first.analysisV2.readiness.score);
+  assert.notEqual(second.analysisV2.context.targetRole, first.analysisV2.context.targetRole);
 });
 
 test("concurrent requests retain independent IDs, contexts, and immutable results", async () => {

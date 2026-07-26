@@ -8,6 +8,7 @@ const multer = require("multer");
 const pdfParse = require('pdf-parse');
 const path = require("path");
 const fs = require("fs");
+const { createHash } = require("node:crypto");
 
 const prisma = require("../lib/prisma");
 const authMiddleware = require("../middleware/authMiddleware");
@@ -391,10 +392,12 @@ router.post("/save-resume-step", authMiddleware, upload.single('resume'), async 
     
     let resumeUrl = null;
     let resumeText = null;
+    let resumeHash = null;
 
     // A. Parse and extract text only if file buffer transmission is detected
     if (req.file && isSkipped !== 'true') {
       resumeUrl = `/uploads/resumes/${req.file.filename}`;
+      resumeHash = createHash("sha256").update(fs.readFileSync(req.file.path)).digest("hex");
       
       const rows = {};
 
@@ -446,7 +449,8 @@ resumeText = Object.keys(rows)
       where: { userId },
       data: {
         resumeUrl: resumeUrl,
-        resumeText: resumeText
+        resumeText: resumeText,
+        resumeHash: resumeHash
       }
     });
 

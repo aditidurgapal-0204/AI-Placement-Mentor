@@ -1,4 +1,3 @@
-console.log("USING ANALYSIS FILE:", __filename);
 const {
   DTO_VERSION,
   validatePresentationSafeGeminiInput
@@ -11,6 +10,8 @@ const {
 const {
   renderDeterministicAnalysis
 } = require("./deterministicAnalysisRenderer");
+
+const PRESENTATION_LANGUAGE_VERSION = "presentation-language-2.1";
 
 const publicInsight = (insight) => ({
   id: insight.id,
@@ -42,6 +43,7 @@ const publicInsight = (insight) => ({
  */
 const createPresentationSafeGeminiDto = (snapshot) => {
   const strengths = snapshot.strengths.map(publicInsight);
+  const scoreDrivers = snapshot.scoreDrivers.map(publicInsight);
   const scoreBlockers = snapshot.scoreBlockers.map(publicInsight);
 
   const careerRisks = snapshot.careerRisks.map((risk) => ({
@@ -57,6 +59,8 @@ const createPresentationSafeGeminiDto = (snapshot) => {
     context: {
       targetRole: snapshot.context.targetRole,
       companyType: snapshot.context.companyType,
+      year: snapshot.context.year,
+      studyStage: snapshot.context.studyStage,
       timelineMonths: snapshot.context.timelineMonths,
       dailyStudyHours: snapshot.context.dailyStudyHours,
       resumeProvided: snapshot.context.resumeProvided
@@ -100,6 +104,8 @@ const createPresentationSafeGeminiDto = (snapshot) => {
      */
     diagnosisContext: {
   strongestEvidence: strengths.slice(0, 4),
+
+  positiveScoreDrivers: scoreDrivers.slice(0, 4),
 
   scoreCauses: scoreBlockers.slice(0, 4),
 
@@ -192,15 +198,19 @@ The diagnosis must contain between 3 and 7 complete sentences.
 It should naturally explain:
 
 - what the readiness score means for the target role;
-- the strongest evidence currently supporting the student;
+- the strongest evidence or positive score drivers currently supporting the student, when they are genuinely meaningful;
 - the most important factors limiting the current score;
 - any important career risk separate from score causality;
 - the supplied first priority;
 - whether the available preparation capacity makes improvement realistic.
 
+When context.studyStage is "early_stage", frame the diagnosis as a foundation-building assessment. Do not imply that a first-year student should already have internship or final-placement evidence.
+
 Use only the most relevant supplied facts.
 
 Do not mechanically list every card.
+
+If the strengths collection is empty, do not add generic praise, a hidden strength, or a positive claim that is absent from MENTOR_ANALYSIS. Explain the current starting point honestly and constructively.
 
 Do not repeat the readiness score more than once.
 
@@ -363,9 +373,6 @@ const generateAnalysisLanguage = async (
   const dto =
     createPresentationSafeGeminiDto(snapshot);
 
-    console.log("\n========== GEMINI DTO ==========");
-    console.dir(dto, { depth: null });
-
   const fallback = () => ({
     source: "deterministic_fallback",
     dto,
@@ -387,9 +394,6 @@ const generateAnalysisLanguage = async (
       options.timeoutMs
     );
     
-    console.log("\n========== RAW GEMINI ==========");
-console.log(generatedValue);
-
     const output =
       parseGeneratedOutput(generatedValue);
 
@@ -409,9 +413,6 @@ console.log(generatedValue);
       };
     }
 
-  console.log("\n========== FINAL OUTPUT ==========");
-console.dir(output, { depth: null });
-  
     return {
       source: "gemini",
       dto,
@@ -436,6 +437,7 @@ console.dir(output, { depth: null });
 };
 
 module.exports = {
+  PRESENTATION_LANGUAGE_VERSION,
   createPresentationSafeGeminiDto,
   buildLanguagePrompt,
   groundingFailureCategory,
