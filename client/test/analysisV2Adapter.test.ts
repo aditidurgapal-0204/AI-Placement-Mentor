@@ -176,19 +176,23 @@ test("dashboard compatibility prefers V2 language without exposing insight IDs",
   assert.equal(dashboard?.readiness.score, source.readiness.score);
   assert.equal(dashboard?.readiness.summary, source.readiness.explanation);
   assert.equal(dashboard?.diagnosis, source.diagnosis);
-  assert.deepEqual(dashboard?.strengths, source.strengths.map(({ text }) => text));
-  assert.equal(dashboard?.firstPriority, source.firstPriority.text);
+  assert.deepEqual(dashboard?.strengths, source.strengths.map(({ id, text }) => ({ id, text })));
+  assert.deepEqual(dashboard?.scoreBlockers, source.scoreBlockers.map(({ id, text }) => ({ id, text })));
+  assert.deepEqual(dashboard?.careerRisks, source.careerRisks.map(({ id, text }) => ({ id, text })));
+  assert.deepEqual(dashboard?.firstPriority, { id: source.firstPriority.id, text: source.firstPriority.text });
   assert.ok(dashboard?.limitations.includes(source.scoreBlockers[0].text));
   assert.ok(dashboard?.limitations.includes(source.careerRisks[0].text));
   assert.equal(dashboard?.limitations.some((text) => /^first priority:/i.test(text)), false);
-  assert.deepEqual(Object.keys(dashboard || {}).sort(), ["context", "diagnosis", "firstPriority", "limitations", "readiness", "strengths"]);
+  assert.deepEqual(Object.keys(dashboard || {}).sort(), ["careerRisks", "context", "diagnosis", "firstPriority", "limitations", "readiness", "scoreBlockers", "strengths"]);
 });
 
 test("dashboard compatibility preserves legacy analysis when V2 is unavailable", () => {
   const source = legacy();
   const dashboard = selectDashboardAnalysis(source, null);
   assert.equal(dashboard?.readiness.score, source.readinessScore);
-  assert.deepEqual(dashboard?.strengths, source.strengths);
+  assert.deepEqual(dashboard?.strengths, source.strengths.map((text, index) => ({ id: `legacy-strength-${index + 1}`, text })));
+  assert.deepEqual(dashboard?.scoreBlockers, source.weaknesses.map((text, index) => ({ id: `legacy-weakness-${index + 1}`, text })));
+  assert.deepEqual(dashboard?.careerRisks, []);
   assert.deepEqual(dashboard?.limitations, source.weaknesses);
   assert.equal(dashboard?.firstPriority, null);
 });
@@ -217,7 +221,7 @@ test("dashboard presentation keeps First Priority distinct and limits semantic l
     ]
   });
   const dashboard = selectDashboardAnalysis(legacy(), source);
-  assert.equal(dashboard?.firstPriority, source.firstPriority.text);
+  assert.deepEqual(dashboard?.firstPriority, { id: source.firstPriority.id, text: source.firstPriority.text });
   assert.ok((dashboard?.limitations.length || 0) <= 3);
   assert.equal(dashboard?.limitations.some((text) => text === source.firstPriority.text), false);
   assert.equal(dashboard?.limitations.some((text) => /DSA sessions every week/i.test(text)), false);
@@ -233,14 +237,14 @@ test("representative public V2 strengths survive client validation and dashboard
   ];
   const source = parseAnalysisV2({ ...v2(), strengths: texts.map((text, index) => ({ id: `strength-${index + 1}`, text })) });
   const dashboard = selectDashboardAnalysis(legacy(), source);
-  assert.deepEqual(dashboard?.strengths, texts);
+  assert.deepEqual(dashboard?.strengths, texts.map((text, index) => ({ id: `strength-${index + 1}`, text })));
   assert.equal(dashboard?.strengths.length, 5);
 });
 
 test("restored dashboard visual structure remains unchanged", () => {
   const page = fs.readFileSync(path.join(process.cwd(), "src/app/dashboard/page.tsx"), "utf8");
   for (const marker of [
-    "Placement Insights", "AI Diagnosis", "What&apos;s Holding You Back", "Your Strengths",
+    "Placement Insights", "AI Diagnosis", "First Priority", "Score Blockers", "Career Risks", "Your Strengths",
     "Placement Action Plan", "lg:grid-cols-2", "h-28 w-28", "bg-[#090514]"
   ]) assert.ok(page.includes(marker), marker);
   assert.equal(page.includes("ReadinessOverview"), false);

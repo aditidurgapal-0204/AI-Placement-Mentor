@@ -17,8 +17,8 @@ const options = {
 test("orchestrator creates a valid immutable version 2 internal snapshot", () => {
   const snapshot = createMentorAnalysisSnapshot(profiles.machineLearning, options);
   assert.deepEqual(validateMentorAnalysisV2(snapshot), { valid: true, errors: [] });
-  assert.equal(snapshot.metadata.schemaVersion, "2.0");
-  assert.equal(snapshot.metadata.modelVersions.scoring, "legacy-readiness-1.0");
+  assert.equal(snapshot.metadata.schemaVersion, "2.1");
+  assert.equal(snapshot.metadata.modelVersions.scoring, "deterministic-readiness-2.0");
   assert.equal(snapshot.metadata.modelVersions.language, "not_rendered");
   assert.equal(Object.isFrozen(snapshot), true);
   assert.equal(Object.isFrozen(snapshot.internalTrace.canonicalEvidence), true);

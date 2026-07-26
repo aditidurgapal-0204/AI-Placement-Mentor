@@ -25,7 +25,11 @@ const SECTION_HEADERS = {
     "projects",
     "project",
     "academic projects",
-    "personal projects"
+    "personal projects",
+    "selected projects",
+    "technical projects",
+    "project experience",
+    "portfolio"
   ],
 
   experience: [
@@ -49,7 +53,9 @@ const SECTION_HEADERS = {
     "extracurricular",
     "extracurricular activities",
     "co curricular activities",
-    "co-curricular activities"
+    "co-curricular activities",
+    "activities",
+    "volunteering"
   ],
 
   certifications: [

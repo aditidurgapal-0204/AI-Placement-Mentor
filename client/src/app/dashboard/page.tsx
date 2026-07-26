@@ -18,20 +18,23 @@ export default function DashboardPage() {
 
   const readinessScore = analysis.readiness.score;
   const diagnosis = analysis.diagnosis;
-  const weaknesses = analysis.limitations;
+  const scoreBlockers = analysis.scoreBlockers;
+  const careerRisks = analysis.careerRisks;
+  const legacyLimitations = analysis.limitations;
   const displayedStrengths = analysis.strengths;
+  const displayedScoreBlockers = scoreBlockers.length || analysis.context
+    ? scoreBlockers
+    : legacyLimitations.map((text, index) => ({ id: `legacy-limitation-${index + 1}`, text }));
 
   // Compute status parameters with premium color combinations and glow states
-  let riskLabel = 'Moderate Readiness';
+  const riskLabel = analysis.readiness.label;
   let riskBadgeColor = 'text-amber-400 border-amber-500/30 bg-amber-500/10 shadow-[0_0_15px_rgba(245,158,11,0.15)]';
   let strokeColor = '#f59e0b';
 
   if (readinessScore < 45) {
-    riskLabel = 'High Risk';
     riskBadgeColor = 'text-rose-400 border-rose-500/30 bg-rose-500/10 shadow-[0_0_15px_rgba(244,63,94,0.15)]';
     strokeColor = '#f43f5e';
   } else if (readinessScore >= 75) {
-    riskLabel = 'Strong Readiness';
     riskBadgeColor = 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10 shadow-[0_0_15px_rgba(16,185,129,0.15)]';
     strokeColor = '#10b981';
   }
@@ -119,26 +122,39 @@ export default function DashboardPage() {
             </div>
           </section>
 
-          {/* DUAL WORKSPACE LAYOUT: SECTIONS 3 & 4 SIDE-BY-SIDE */}
+          {analysis.firstPriority && (
+            <section className="relative overflow-hidden rounded-2xl border border-blue-500/20 bg-gradient-to-r from-blue-950/15 via-white/[0.01] to-transparent p-6 shadow-xl backdrop-blur-xl sm:p-8">
+              <div className="space-y-3">
+                <h2 className="text-xs font-bold uppercase tracking-widest text-blue-400">
+                  First Priority
+                </h2>
+                <p className="text-sm font-medium leading-relaxed text-slate-200 sm:text-base">
+                  {analysis.firstPriority.text}
+                </p>
+              </div>
+            </section>
+          )}
+
+          {/* DUAL WORKSPACE LAYOUT: SCORE BLOCKERS & CAREER RISKS */}
           <div className="grid gap-8 lg:grid-cols-2">
             
             {/* SECTION 3 — WHAT'S HOLDING YOU BACK */}
             <section className="space-y-5">
               <div className="flex items-center gap-3 border-b border-rose-500/10 pb-3">
-                <h2 className="text-lg font-bold tracking-tight text-slate-200 sm:text-xl">What&apos;s Holding You Back</h2>
-                <span className="rounded bg-rose-500/10 px-2 py-0.5 text-xs font-semibold text-rose-400">{weaknesses.length}</span>
+                <h2 className="text-lg font-bold tracking-tight text-slate-200 sm:text-xl">Score Blockers</h2>
+                <span className="rounded bg-rose-500/10 px-2 py-0.5 text-xs font-semibold text-rose-400">{displayedScoreBlockers.length}</span>
               </div>
               <div className="space-y-3">
-                {weaknesses.map((weakness: string, idx: number) => (
-                  <div 
-                    key={idx} 
+                {displayedScoreBlockers.map((weakness) => (
+                  <div
+                    key={weakness.id}
                     className="group relative overflow-hidden rounded-xl border border-rose-500/10 bg-gradient-to-r from-rose-950/10 via-white/[0.01] to-transparent p-4 transition-all hover:border-rose-500/20 hover:from-rose-950/20"
                   >
                     <div className="absolute top-0 bottom-0 left-0 w-[3px] bg-rose-500/40 group-hover:bg-rose-500 transition-colors" />
                     <div className="flex items-start gap-3 pl-2">
                       <span className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e]" />
                       <p className="text-sm font-medium leading-relaxed text-slate-300 group-hover:text-slate-200 transition-colors">
-                        {weakness}
+                        {weakness.text}
                       </p>
                     </div>
                   </div>
@@ -147,23 +163,23 @@ export default function DashboardPage() {
             </section>
 
             {/* SECTION 4 — YOUR STRENGTHS */}
-            {displayedStrengths.length > 0 ? (
+            {careerRisks.length > 0 ? (
               <section className="space-y-5">
-                <div className="flex items-center gap-3 border-b border-emerald-500/10 pb-3">
-                  <h2 className="text-lg font-bold tracking-tight text-slate-200 sm:text-xl">Your Strengths</h2>
-                  <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-400">{displayedStrengths.length}</span>
+                <div className="flex items-center gap-3 border-b border-amber-500/10 pb-3">
+                  <h2 className="text-lg font-bold tracking-tight text-slate-200 sm:text-xl">Career Risks</h2>
+                  <span className="rounded bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-400">{careerRisks.length}</span>
                 </div>
                 <div className="space-y-3">
-                  {displayedStrengths.map((strength: string, idx: number) => (
-                    <div 
-                      key={idx} 
-                      className="group relative overflow-hidden rounded-xl border border-emerald-500/10 bg-gradient-to-r from-emerald-950/10 via-white/[0.01] to-transparent p-4 transition-all hover:border-emerald-500/20 hover:from-emerald-950/20"
+                  {careerRisks.map((risk) => (
+                    <div
+                      key={risk.id}
+                      className="group relative overflow-hidden rounded-xl border border-amber-500/10 bg-gradient-to-r from-amber-950/10 via-white/[0.01] to-transparent p-4 transition-all hover:border-amber-500/20 hover:from-amber-950/20"
                     >
-                      <div className="absolute top-0 bottom-0 left-0 w-[3px] bg-emerald-500/40 group-hover:bg-emerald-500 transition-colors" />
+                      <div className="absolute top-0 bottom-0 left-0 w-[3px] bg-amber-500/40 group-hover:bg-amber-500 transition-colors" />
                       <div className="flex items-start gap-3 pl-2">
-                        <span className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
+                        <span className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-500 shadow-[0_0_8px_#f59e0b]" />
                         <p className="text-sm font-medium leading-relaxed text-slate-300 group-hover:text-slate-200 transition-colors">
-                          {strength}
+                          {risk.text}
                         </p>
                       </div>
                     </div>
@@ -172,6 +188,31 @@ export default function DashboardPage() {
               </section>
             ) : <div />}
           </div>
+
+          {displayedStrengths.length > 0 ? (
+            <section className="space-y-5">
+              <div className="flex items-center gap-3 border-b border-emerald-500/10 pb-3">
+                <h2 className="text-lg font-bold tracking-tight text-slate-200 sm:text-xl">Your Strengths</h2>
+                <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-400">{displayedStrengths.length}</span>
+              </div>
+              <div className="space-y-3">
+                {displayedStrengths.map((strength) => (
+                  <div
+                    key={strength.id}
+                    className="group relative overflow-hidden rounded-xl border border-emerald-500/10 bg-gradient-to-r from-emerald-950/10 via-white/[0.01] to-transparent p-4 transition-all hover:border-emerald-500/20 hover:from-emerald-950/20"
+                  >
+                    <div className="absolute top-0 bottom-0 left-0 w-[3px] bg-emerald-500/40 group-hover:bg-emerald-500 transition-colors" />
+                    <div className="flex items-start gap-3 pl-2">
+                      <span className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
+                      <p className="text-sm font-medium leading-relaxed text-slate-300 group-hover:text-slate-200 transition-colors">
+                        {strength.text}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           {/* SECTION 5 — PLACEMENT ACTION PLAN */}
           <section className="space-y-5">

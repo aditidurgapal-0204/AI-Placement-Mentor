@@ -121,6 +121,7 @@ const extractResumeMetrics = (resumeText, canonicalProjectFacts) => {
     projects: canonicalProjectFacts, // Ingesting the unique truth configuration directly
     hasGitHub: false,
     detectedTechnologies: [],
+    resumeEvaluated: false,
     activities: { publicSpeaking: [], societyParticipation: [], volunteering: [], measurableAchievements: [] },
     certificationEntries: []
   };
@@ -130,6 +131,7 @@ const extractResumeMetrics = (resumeText, canonicalProjectFacts) => {
   }
 
   const text = resumeText.toLowerCase();
+  result.resumeEvaluated = true;
 
   const lines = resumeText.split(/\r?\n/);
   const sections = detectSections(resumeText);

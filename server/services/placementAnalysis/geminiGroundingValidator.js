@@ -370,14 +370,19 @@ const validateGeminiGrounding = (output, input) => {
 
   const hasFact = (type) =>
     facts.some((fact) => {
-      const factType = normalize(
-        fact.type ||
-          fact.factType ||
-          fact.kind ||
-          fact.category
-      );
+      const normalizedType = normalize(type);
+      const factTypes = [
+        fact.type,
+        fact.capability,
+        fact.factType,
+        fact.kind,
+        fact.category,
+      ].map(normalize).filter(Boolean);
+      const evidenceTypes = Array.isArray(fact.evidenceTypes)
+        ? fact.evidenceTypes.map(normalize)
+        : [];
 
-      if (factType !== normalize(type)) {
+      if (!factTypes.includes(normalizedType) && !evidenceTypes.includes(normalizedType)) {
         return false;
       }
 
@@ -405,7 +410,8 @@ const validateGeminiGrounding = (output, input) => {
 
   if (
     /\bgithub\b|\bcode portfolio\b/.test(combined) &&
-    !hasFact("code_portfolio")
+    !hasFact("code_portfolio") &&
+    !/\b(?:absence|without|no|limited|needs?|gain|publish|build|complete|improve|add)\b/.test(combined)
   ) {
     errors.push("output contains unsupported GitHub claim");
   }

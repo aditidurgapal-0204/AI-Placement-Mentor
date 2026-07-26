@@ -37,10 +37,19 @@ test("valid generated language is accepted without allowing the model to alter s
   const result = await generateAnalysisLanguage(buildSnapshot(), async ({ dto }) => ({
     analysisId: dto.analysisId,
     diagnosis: groundedDiagnosis,
-    strengths: dto.strengths.map(({ id, conclusion }) => ({ insightId: id, text: conclusion })),
-    scoreBlockers: dto.scoreBlockers.map(({ id, conclusion }) => ({ insightId: id, text: conclusion })),
-    careerRisks: dto.careerRisks.map(({ id, conclusion }) => ({ insightId: id, text: conclusion })),
-    priority: { insightId: dto.priority.id, text: dto.priority.objective }
+    strengths: dto.strengths.map(({ id, title, facts }) => ({
+      insightId: id,
+      text: `${title} supports preparation for ${facts.targetRole || dto.context.targetRole}.`
+    })),
+    scoreBlockers: dto.scoreBlockers.map(({ id, title, facts }) => ({
+      insightId: id,
+      text: `Improve ${title} for ${facts.targetRole || dto.context.targetRole}.`
+    })),
+    careerRisks: dto.careerRisks.map(({ id, title }) => ({
+      insightId: id,
+      text: `Improve ${title} so the profile is easier for recruiters to evaluate.`
+    })),
+    priority: { insightId: dto.priority.id, text: "Focus first on the selected backend priority." }
   }));
   assert.equal(result.source, "gemini");
 });
