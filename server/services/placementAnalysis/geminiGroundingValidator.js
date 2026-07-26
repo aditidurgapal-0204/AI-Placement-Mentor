@@ -35,6 +35,13 @@ const normalize = (value) =>
     .replace(/[^a-z0-9+#.]+/g, " ")
     .trim();
 
+const uniqueInsightTexts = (items, path, errors) => {
+  const texts = (items || []).map((item) => normalize(item?.text)).filter(Boolean);
+  if (new Set(texts).size !== texts.length) {
+    errors.push(`${path} must not repeat identical insight text`);
+  }
+};
+
 const asArray = (value) => {
   if (Array.isArray(value)) {
     return value;
@@ -52,6 +59,11 @@ const evidenceInsights = (input) => [
   ...(input?.scoreBlockers || []),
   ...(input?.careerRisks || []),
   ...(input?.priority ? [input.priority] : []),
+  ...(input?.diagnosisContext?.strongestEvidence || []),
+  ...(input?.diagnosisContext?.positiveScoreDrivers || []),
+  ...(input?.diagnosisContext?.scoreCauses || []),
+  ...(input?.diagnosisContext?.importantCareerRisks || []),
+  ...(input?.diagnosisContext?.priority ? [input.diagnosisContext.priority] : []),
 ];
 
 /**
@@ -288,6 +300,9 @@ const collectFactObjects = (input) => {
 const validateGeminiGrounding = (output, input) => {
   const contract = validatePresentationSafeGeminiOutput(output, input);
   const errors = [...contract.errors];
+  uniqueInsightTexts(output?.strengths, "strengths", errors);
+  uniqueInsightTexts(output?.scoreBlockers, "scoreBlockers", errors);
+  uniqueInsightTexts(output?.careerRisks, "careerRisks", errors);
   const approvedNumbers = collectApprovedNumbers(input);
 
   if (typeof output?.diagnosis === "string") {
@@ -374,12 +389,18 @@ const validateGeminiGrounding = (output, input) => {
         fact.type ||
           fact.factType ||
           fact.kind ||
-          fact.category
+          fact.category ||
+          fact.capability
       );
 
       if (factType !== normalize(type)) {
         return false;
       }
+
+      // A capability fact on a career-risk card supports a constrained
+      // absence statement (for example, "does not yet show internship").
+      // It is not evidence that the capability is present.
+      if (fact.capability) return true;
 
       const detail =
         fact.detail ??

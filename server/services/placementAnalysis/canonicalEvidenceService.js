@@ -1,6 +1,6 @@
 const { createHash } = require("node:crypto");
 
-const CANONICAL_EVIDENCE_VERSION = "1.0";
+const CANONICAL_EVIDENCE_VERSION = "1.1";
 
 const stableValue = (value) => {
   if (Array.isArray(value)) return value.map(stableValue);
@@ -93,6 +93,7 @@ const buildCanonicalEvidence = ({ profileData = {}, resumeEvidence = {}, resumeP
           displayName,
           projectType: normalizedProjectType(project.type),
           complexity: String(project.complexity || "basic").toLowerCase(),
+          roleRelevance: String(project.roleRelevance || project.companyFit || "unknown").toLowerCase(),
           technologies,
           capabilities,
           evidenceQuality: String(project.complexity || "basic").toLowerCase() === "advanced" ? "high" : "medium",

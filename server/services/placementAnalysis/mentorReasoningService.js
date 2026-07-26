@@ -55,10 +55,17 @@ const technicalFamily = (capabilities) => {
 const buildStrengths = (evidence, targetRole) => {
   const strengths = [];
   const usedFamilies = new Set();
+  const qualification = MENTOR_REASONING_RULES.strengths.qualification;
 
   for (const project of projectItems(evidence)) {
     if (strengths.length >= 2) break;
     const family = technicalFamily(project.value.capabilities);
+    const capabilities = unique(project.value.capabilities || []);
+    const complexity = String(project.value.complexity || "").toLowerCase();
+    const relevance = String(project.value.roleRelevance || project.value.companyFit || "unknown").toLowerCase();
+    if (capabilities.length < qualification.minimumProjectCapabilityCount
+      || !qualification.acceptedProjectComplexities.includes(complexity)
+      || !qualification.acceptedProjectRelevance.includes(relevance)) continue;
     if (usedFamilies.has(family)) continue;
     usedFamilies.add(family);
     strengths.push({
@@ -71,7 +78,7 @@ const buildStrengths = (evidence, targetRole) => {
   }
 
   const cgpa = evidence.find(({ capability }) => capability === "cgpa");
-  if (cgpa && Number(cgpa.value) >= 7) strengths.push({
+  if (cgpa && Number(cgpa.value) >= qualification.minimumAcademicCgpa) strengths.push({
     id: "strength-academic",
     type: "academic_strength",
     facts: { targetRole, cgpa: Number(cgpa.value) },
@@ -93,6 +100,17 @@ const buildStrengths = (evidence, targetRole) => {
     },
     confidence: confidence([leadership]),
     internalTrace: trace([leadership.id], [])
+  });
+
+  const selfAssessedSkill = evidence.find(({ type, value }) =>
+    type === "skill_level" && qualification.acceptedSelfAssessedLevels.includes(String(value || "").toLowerCase())
+  );
+  if (selfAssessedSkill) strengths.push({
+    id: `strength-profile-${selfAssessedSkill.capability}`,
+    type: "profile_skill_strength",
+    facts: { targetRole, skill: selfAssessedSkill.capability, level: selfAssessedSkill.value },
+    confidence: confidence([selfAssessedSkill]),
+    internalTrace: trace([selfAssessedSkill.id], [])
   });
 
   return strengths.slice(0, MENTOR_REASONING_RULES.strengths.maximum);
@@ -125,6 +143,9 @@ const maximumPoints = (item) => {
 };
 
 const aliases = {
+  academic_performance: ["cgpa"],
+  technical_projects: ["project_identity", "technical_projects"],
+  preparation_capacity: ["timeline_months", "daily_study_hours"],
   dsa: ["dsa", "data_structures_algorithms"],
   dbms: ["dbms", "database_management_systems"],
   os: ["os", "operating_systems"],
@@ -142,6 +163,48 @@ const relatedEvidence = (evidence, capability) => evidence.filter((item) =>
   (aliases[capability] || [capability]).includes(String(item.capability || "").toLowerCase())
 );
 
+/*
+ * Score drivers are included in the presentation-safe diagnosis context. Keep
+ * this projection intentionally small: it gives the language layer concrete
+ * facts to reference without exposing raw resume text, provenance paths, or
+ * internal scoring identifiers.
+ */
+const driverSupportingFacts = (items = []) => {
+  const projectExamples = [];
+  const skillFacts = [];
+  const academicFacts = [];
+  const experienceFacts = [];
+  const portfolioFacts = [];
+
+  for (const item of items) {
+    if (item.type === "project_evidence" && item.value?.displayName) {
+      projectExamples.push({
+        name: item.value.displayName,
+        complexity: item.value.complexity || null,
+        technologies: unique(item.value.technologies || []).slice(0, 4),
+        capabilities: unique(item.value.capabilities || []).slice(0, 4),
+        deployed: item.value.deploymentStatus === "verified"
+      });
+    } else if (item.type === "skill_level") {
+      skillFacts.push({ skill: item.capability, level: item.value });
+    } else if (item.capability === "cgpa" && Number.isFinite(Number(item.value))) {
+      academicFacts.push({ cgpa: Number(item.value) });
+    } else if (item.capability === "internship" && item.value?.exists) {
+      experienceFacts.push({ internship: true });
+    } else if (item.capability === "code_portfolio" && item.value?.exists) {
+      portfolioFacts.push({ codePortfolio: true });
+    }
+  }
+
+  return {
+    projectExamples: projectExamples.slice(0, 2),
+    skillFacts: skillFacts.slice(0, 3),
+    academicFacts: academicFacts.slice(0, 1),
+    experienceFacts: experienceFacts.slice(0, 1),
+    portfolioFacts: portfolioFacts.slice(0, 1)
+  };
+};
+
 const skillGap = (evidence, capability) => {
   const item = relatedEvidence(evidence, capability).find(({ type }) => type === "skill_level");
   if (!item) return null;
@@ -158,7 +221,11 @@ const buildScoreDrivers = (ledger, evidence) => (ledger.contributions || [])
     return {
       id: `driver-${index + 1}`,
       type,
-      facts: { source: item.source, earnedPoints: Number(item.points) },
+      facts: {
+        earnedPoints: Number(item.points),
+        category: type,
+        supportingFacts: driverSupportingFacts(related)
+      },
       scoring: { affectsCurrentScore: true, earnedPoints: Number(item.points) },
       confidence: confidence(related),
       internalTrace: trace(related.map(({ id }) => id), item.id ? [item.id] : [])
@@ -239,7 +306,7 @@ const buildScoreBlockers = (ledger, evidence, context) => {
   return blockers.sort((a, b) =>
     Math.abs(b.scoring.penaltyPoints || b.scoring.gapPoints || 0)
     - Math.abs(a.scoring.penaltyPoints || a.scoring.gapPoints || 0)
-  );
+  ).slice(0, MENTOR_REASONING_RULES.blockers.maximumScoreBlockers);
 };
 
 const buildCareerRisks = (evidence, context) => {

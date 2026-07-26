@@ -16,6 +16,8 @@ model User {
   currentOnboardingStep Int               @default(1)
   isOnboardingComplete  Boolean           @default(false)
   placementProfile      PlacementProfile?
+  resumeExtractions     ResumeExtraction[]
+  analysisSnapshots     AnalysisSnapshot[]
 }
 
 model PlacementProfile {
@@ -38,5 +40,54 @@ model PlacementProfile {
   preparationTimelineMonths Int?
   resumeText                String?
   resumeUrl                 String?
+  resumeHash                String?
   user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum AnalysisSnapshotStatus {
+  COMPLETED
+  FAILED
+}
+
+model ResumeExtraction {
+  id                String   @id @default(cuid())
+  userId            String
+  resumeHash        String
+  extractionVersion String
+  source            String
+  model             String?
+  facts             Json
+  validationReport  Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  analysisSnapshots AnalysisSnapshot[]
+
+  @@unique([userId, resumeHash, extractionVersion])
+  @@index([userId, createdAt])
+}
+
+model AnalysisSnapshot {
+  id                 String                 @id @default(cuid())
+  userId             String
+  resumeExtractionId String?
+  profileFingerprint String
+  inputFingerprint   String
+  scoringVersion     String
+  reasoningVersion   String
+  languageVersion    String
+  status             AnalysisSnapshotStatus @default(COMPLETED)
+  scoreLedger        Json
+  canonicalEvidence  Json
+  mentorSnapshot     Json
+  analysisV2         Json
+  legacyAnalysis     Json
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  user               User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resumeExtraction   ResumeExtraction?      @relation(fields: [resumeExtractionId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, inputFingerprint])
+  @@index([userId, createdAt])
+  @@index([resumeExtractionId])
 }

@@ -2,6 +2,53 @@ const prisma = require("../lib/prisma");
 const geminiService = require("../services/geminiService");
 const productionAnalysisService = require("../services/placementAnalysis/productionAnalysisService");
 const { randomUUID } = require("node:crypto");
+const { SCORE_MODEL_VERSION } = require("../services/placementAnalysis/scoreLedgerAdapter");
+const { REASONING_MODEL_VERSION } = require("../services/placementAnalysis/analysisOrchestrator");
+const { PRESENTATION_LANGUAGE_VERSION } = require("../services/placementAnalysis/analysisLanguageService");
+const {
+  GEMINI_EXTRACTION_VERSION,
+  FALLBACK_EXTRACTION_VERSION,
+  NO_RESUME_EXTRACTION_VERSION
+} = require("../services/resumeExtraction/resumeExtractionService");
+const {
+  resumeHashFor,
+  profileFingerprintFor,
+  inputFingerprintFor,
+  readSnapshot,
+  readResumeExtraction,
+  saveResumeExtraction,
+  saveAnalysisSnapshot
+} = require("../services/analysisPersistence/analysisSnapshotService");
+
+const analysisResponse = ({ analysis, analysisV2 }, { profile, hasResumeUrl, hasResumeText }) => ({
+  success: true,
+  userFound: true,
+  profileFound: true,
+  resumeUploaded: hasResumeUrl,
+  resumeTextAvailable: hasResumeText,
+  analysis,
+  analysisV2,
+  profileData: {
+    branch: profile.branch,
+    year: profile.year,
+    cgpa: profile.cgpa,
+    companyType: profile.companyType,
+    targetRole: profile.targetRole,
+    skills: {
+      dsa: profile.dsa,
+      dbms: profile.dbms,
+      os: profile.os,
+      networks: profile.networks,
+      aptitude: profile.aptitude,
+      communication: profile.communication,
+    },
+    timeline: {
+      preparationTimelineMonths: profile.preparationTimelineMonths,
+      dailyStudyHours: profile.dailyStudyHours,
+    },
+    resumeAvailable: hasResumeText,
+  }
+});
 
 // POST /api/ai/generate-analysis
 const generateAnalysis = async (req, res) => {
@@ -73,12 +120,68 @@ const generateAnalysis = async (req, res) => {
         dailyStudyHours: profile.dailyStudyHours,
       },
       resumeText: profile.resumeText, // Holds string data (Case A) or clean null (Case B)
+      resumeHash: profile.resumeHash,
     };
 
     // 7. 🚀 DELEGATE PIPELINE TO SERVICE CORE: Keeps prompt engineering out of the controller
+    const resumeHash = resumeHashFor(packedProfileData);
+    const profileFingerprint = profileFingerprintFor(packedProfileData);
+    const candidateExtractionVersions = hasResumeText
+      ? [GEMINI_EXTRACTION_VERSION, FALLBACK_EXTRACTION_VERSION]
+      : [NO_RESUME_EXTRACTION_VERSION];
+
+    for (const extractionVersion of candidateExtractionVersions) {
+      const inputFingerprint = inputFingerprintFor({
+        profileFingerprint,
+        resumeHash,
+        extractionVersion,
+        scoringVersion: SCORE_MODEL_VERSION,
+        reasoningVersion: REASONING_MODEL_VERSION,
+        languageVersion: PRESENTATION_LANGUAGE_VERSION
+      });
+      const cached = await readSnapshot(prisma, userId, inputFingerprint);
+      if (cached) {
+        console.info("Placement analysis snapshot reused", { requestId, userId, snapshotId: cached.snapshotId });
+        return res.status(200).json(analysisResponse(cached, { profile, hasResumeUrl, hasResumeText }));
+      }
+    }
+
     console.info("Placement analysis request received", { requestId, userId });
-    const { analysis: aiAnalysisResult, analysisV2 } = await productionAnalysisService
-      .analyzePlacementProfileV2(packedProfileData, { requestId });
+    const reusedExtraction = hasResumeText
+      ? await readResumeExtraction(prisma, {
+          userId,
+          resumeHash,
+          extractionVersions: candidateExtractionVersions
+        })
+      : null;
+    const result = await productionAnalysisService.analyzePlacementProfileV2(packedProfileData, {
+      requestId,
+      includeArtifacts: true,
+      ...(reusedExtraction
+        ? { dependencies: { extractResumeFacts: async () => reusedExtraction } }
+        : {})
+    });
+    const inputFingerprint = inputFingerprintFor({
+      profileFingerprint,
+      resumeHash,
+      extractionVersion: result.extraction.version,
+      scoringVersion: SCORE_MODEL_VERSION,
+      reasoningVersion: REASONING_MODEL_VERSION,
+      languageVersion: PRESENTATION_LANGUAGE_VERSION
+    });
+    const extractionRecord = await saveResumeExtraction(prisma, {
+      userId,
+      resumeHash,
+      extraction: result.extraction
+    });
+    const persisted = await saveAnalysisSnapshot(prisma, {
+      userId,
+      profileFingerprint,
+      inputFingerprint,
+      extraction: result.extraction,
+      resumeExtractionId: extractionRecord?.id,
+      result: { ...result, languageVersion: PRESENTATION_LANGUAGE_VERSION }
+    });
 
     // 8. Return structured production JSON response format carrying the AI service output
     console.info("Placement analysis response returned", { requestId, userId });
@@ -88,8 +191,8 @@ const generateAnalysis = async (req, res) => {
       profileFound: true,
       resumeUploaded: hasResumeUrl,
       resumeTextAvailable: hasResumeText,
-      analysis: aiAnalysisResult, // 🧠 Contains readinessScore, strengths, weaknesses, etc.
-      analysisV2,
+      analysis: persisted.legacyAnalysis,
+      analysisV2: persisted.analysisV2,
       profileData: {
         branch: profile.branch,
         year: profile.year,

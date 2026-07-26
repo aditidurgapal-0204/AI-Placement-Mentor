@@ -13,8 +13,9 @@ const { rankResumeEvidence } = require("./readiness/evidenceRanker");
 const { extractLeadershipItems } = require("./readiness/structuredProjectEvidence");
 const { buildAnalysisFacts } = require("./readiness/analysisFactsBuilder");
 const { adaptScoreBreakdownToLedger } = require("./placementAnalysis/scoreLedgerAdapter");
+const { adaptResumeFactsToEngineEvidence } = require("./resumeExtraction/resumeFactsAdapter");
 
-const computeReadiness = (profileData) => {
+const computeReadiness = (profileData, options = {}) => {
   if (!profileData) {
     return { 
       readinessScore: 0, 
@@ -29,10 +30,17 @@ const computeReadiness = (profileData) => {
   const canonicalRole = normalizeRole(profileData.targetRole);
   const { key: selectedCompanyKey, rules, isEliteTarget } = getCompanyRules(profileData.companyType); // ISSUE 1: Ingesting key directly, preventing double parsing
   
-  // 2. Single-pass Project Extraction & Structural Evaluation
-  const canonicalProjectFacts = evaluateProjects(profileData.resumeText, canonicalRole, selectedCompanyKey);
-  const resumeEvidence = extractResumeMetrics(profileData.resumeText, canonicalProjectFacts);
-  const leadershipItems = extractLeadershipItems(profileData.resumeText);
+  // 2. Structured resume facts are preferred when a validated extraction is
+  // available. The deterministic parser remains the availability fallback.
+  const extractedResume = options.resumeFacts
+    ? adaptResumeFactsToEngineEvidence(options.resumeFacts)
+    : null;
+  const canonicalProjectFacts = extractedResume?.canonicalProjectFacts
+    || evaluateProjects(profileData.resumeText, canonicalRole, selectedCompanyKey);
+  const resumeEvidence = extractedResume?.resumeEvidence
+    || extractResumeMetrics(profileData.resumeText, canonicalProjectFacts);
+  const leadershipItems = extractedResume?.leadershipItems
+    || extractLeadershipItems(profileData.resumeText);
   const rankedEvidence = rankResumeEvidence(resumeEvidence, canonicalRole, leadershipItems);
   // 3. Quantitative Score Calculation Pass
   const scoreBreakdown = calculateReadinessScoreBreakdown(
@@ -110,6 +118,11 @@ const factualStrengths = [
       research: resumeEvidence.research?.exists ? [resumeEvidence.research] : [],
       openSource: resumeEvidence.openSource?.exists ? [resumeEvidence.openSource] : []
     },
+
+    resumeExtraction: options.resumeFacts ? {
+      source: options.resumeExtractionSource || "provided",
+      version: options.resumeExtractionVersion || null
+    } : null,
 
     rankedStrengthCandidates: rankedEvidence.rankedCandidates,
     topEvidence: rankedEvidence.topEvidence,

@@ -6,10 +6,6 @@
 
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { computeReadiness } = require("./readinessEngine");
-const { detectSections } = require("./resume/sectionDetector");
-
-// Temporary diagnostic requested by the user. Keep until explicitly asked to remove it.
-let debugAnalysisDumpEmitted = false;
 
 const humanize = (value) => String(value || "current capability")
   .replace(/_/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
@@ -126,54 +122,12 @@ const compactProjectLabel = (value) => String(value || "")
   .replace(/\s+/g, " ")
   .trim();
 
-const compactTopFact = (fact) => fact ? {
-  category: fact.category,
-  projectCount: fact.projectCount,
-  primaryTechnologies: (fact.technologies || fact.primaryTechnologies || []).slice(0, 3),
-  methods: (fact.methods || []).slice(0, 3)
-} : null;
-
-const compactTopEvidence = (topEvidence) => topEvidence ? {
-  strongestProject: topEvidence.strongestProject ? {
-    name: compactProjectLabel(topEvidence.strongestProject.name),
-    type: topEvidence.strongestProject.type,
-    reasons: topEvidence.strongestProject.reasons,
-    roleRelevance: topEvidence.strongestProject.roleRelevance
-  } : null,
-  strongestTechnicalEvidence: compactTopFact(topEvidence.strongestTechnicalEvidence),
-  strongestLeadership: topEvidence.strongestLeadership,
-  strongestDeployment: compactTopFact(topEvidence.strongestDeployment),
-  strongestMachineLearning: compactTopFact(topEvidence.strongestMachineLearning),
-  strongestBackend: compactTopFact(topEvidence.strongestBackend),
-  strongestFrontend: compactTopFact(topEvidence.strongestFrontend),
-  strongestDatabase: compactTopFact(topEvidence.strongestDatabase)
-} : null;
-
-const buildSafeSectionDebug = (resumeText) => {
-  const sections = detectSections(resumeText || "");
-
-  return Object.fromEntries(Object.entries(sections).map(([name, content]) => {
-    const lines = content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-    const summary = {
-      present: lines.length > 0,
-      lineCount: lines.length,
-      characterCount: content.length
-    };
-
-    if (name === "certifications") summary.entries = lines;
-    return [name, summary];
-  }));
-};
-
 const testConnection = async () => {
   const model = getGeminiClient().getGenerativeModel({
     model: "gemini-2.5-flash"
   });
 
   const result = await model.generateContent("Hello");
-
-  console.log(result.response.usageMetadata);
-  console.log(result.response.text());
 
   return result.response.text();
 };
@@ -203,12 +157,6 @@ const generatePresentationLanguage = async (prompt, { requestId = "untracked", a
   const result = await model.generateContent({ contents: [{ role: "user", parts: [{ text: prompt }] }] });
   const response = await result.response;
   const finishReason = response.candidates?.[0]?.finishReason || "UNKNOWN";
-  console.info("Gemini mentor language metadata", {
-    requestId, analysisId, finishReason,
-    promptTokenCount: response.usageMetadata?.promptTokenCount,
-    candidatesTokenCount: response.usageMetadata?.candidatesTokenCount,
-    totalTokenCount: response.usageMetadata?.totalTokenCount
-  });
   if (finishReason !== "STOP") throw new Error(`Gemini mentor language ended with finish reason ${finishReason}.`);
   return response.text();
 };
@@ -293,53 +241,6 @@ ${JSON.stringify(mentorFacts, null, 2)}
 
 `.trim();
 
-if (!debugAnalysisDumpEmitted) {
-  debugAnalysisDumpEmitted = true;
-  const { resumeText, ...safeProfileData } = profileData;
-
-  console.log("========================================");
-  console.log("DEBUG ANALYSIS DUMP (TEMPORARY, ONE REQUEST ONLY)");
-  console.log("========================================");
-  console.dir({
-    requestId,
-    parsedResumeSections: buildSafeSectionDebug(resumeText),
-    leadershipInterpretation: {
-      dedicatedLeadershipSectionDetected: buildSafeSectionDebug(resumeText).leadership.present,
-      leadershipEvidenceDetected: engineFacts.resumeFacts.leadership?.exists || false,
-      evidenceSourcesChecked: ["leadership", "extracurricular"]
-    },
-    profileData: {
-      ...safeProfileData,
-      resumeProvided: typeof resumeText === "string" && resumeText.trim().length > 0,
-      resumeCharacterCount: typeof resumeText === "string" ? resumeText.length : 0
-    },
-    resumeMetrics: engineFacts.resumeFacts,
-    projectSummaries: engineFacts.resumeFacts.projects?.summaries || [],
-    perProjectCapabilities: engineFacts.resumeFacts.projects?.summaries || [],
-    perProjectEvidence: engineFacts.resumeEvidenceModel?.projects || [],
-    unknownTechnologiesPreserved: (engineFacts.resumeEvidenceModel?.projects || []).flatMap((project) => project.unknownTechnologies || []),
-    rankedStrengthCandidates: engineFacts.rankedStrengthCandidates,
-    selectedStrengths: engineFacts.strengthFacts,
-    strongestProject: engineFacts.topEvidence?.strongestProject,
-    scoreBreakdown: engineFacts.scoreBreakdown,
-    mentorFacts,
-    factualStrengths: engineFacts.factualStrengths,
-    profileWeaknesses: engineFacts.profileWeaknesses,
-    resumeWeaknesses: engineFacts.resumeWeaknesses,
-    readinessScore: engineFacts.readinessScore,
-    dashboardEvidence: fallbackDashboardEvidence,
-    finalPromptStatistics: {
-      promptLength: prompt.length,
-      mentorFactsSize: JSON.stringify(mentorFacts).length,
-      promptTokenCount: null,
-      promptTokenCountNote: "Reported by the existing Gemini response metadata after generation."
-    }
-  }, { depth: null });
-  console.log("========================================");
-  console.log("END DEBUG ANALYSIS DUMP");
-  console.log("========================================");
-}
-
 let rawResponseText = null;
 
 try {
@@ -374,16 +275,6 @@ try {
       });
       const response = await result.response;
       const finishReason = response.candidates?.[0]?.finishReason || "UNKNOWN";
-
-      console.info("Gemini diagnosis response metadata", {
-        requestId,
-        attempt,
-        finishReason,
-        promptTokenCount: response.usageMetadata?.promptTokenCount,
-        candidatesTokenCount: response.usageMetadata?.candidatesTokenCount,
-        thoughtsTokenCount: response.usageMetadata?.thoughtsTokenCount,
-        totalTokenCount: response.usageMetadata?.totalTokenCount
-      });
 
       if (finishReason === "MAX_TOKENS") {
         if (attempt < MAX_GEMINI_ATTEMPTS) continue;

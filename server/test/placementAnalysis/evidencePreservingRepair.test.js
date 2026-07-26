@@ -51,11 +51,11 @@ test("supplemental resume classification remains typed and requires certificate 
   assert.equal(ordinaryCourse.certifications.exists, false);
 });
 
-test("mentor reasoning selects bounded concrete evidence and preserves skill levels", () => {
+test("mentor reasoning keeps bounded concrete project and skill evidence in score drivers", () => {
   const current = snapshot();
-  assert.ok(current.strengths.some(({ supportingFacts }) => supportingFacts.projectExamples.some(({ name }) => name === "Orbit Planner")));
-  assert.ok(current.strengths.some(({ supportingFacts }) => supportingFacts.skillFacts.some(({ skill, level }) => skill === "dsa" && level === "Intermediate")));
-  current.strengths.forEach(({ supportingFacts }) => {
+  assert.ok(current.scoreDrivers.some(({ facts }) => facts.supportingFacts.projectExamples.some(({ name }) => name === "Orbit Planner")));
+  assert.ok(current.scoreDrivers.some(({ facts }) => facts.supportingFacts.skillFacts.some(({ skill, level }) => skill === "dsa" && level === "Intermediate")));
+  current.scoreDrivers.forEach(({ facts: { supportingFacts } }) => {
     assert.ok(supportingFacts.projectExamples.length <= 2);
     supportingFacts.projectExamples.forEach(({ technologies }) => assert.ok(technologies.length <= 4));
   });

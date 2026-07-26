@@ -1,6 +1,8 @@
 const { createHash } = require("node:crypto");
 
-const SCORE_MODEL_VERSION = "deterministic-readiness-2.0";
+// Resume-derived scoring now consumes the validated ResumeFacts contract when
+// available, so cached results from the prior parser-only model are not valid.
+const SCORE_MODEL_VERSION = "deterministic-readiness-2.1";
 
 const round2 = (value) =>
   Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;

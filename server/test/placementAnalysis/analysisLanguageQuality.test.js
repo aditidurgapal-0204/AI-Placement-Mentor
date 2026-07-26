@@ -63,7 +63,7 @@ test("Gemini failure returns the same useful deterministic language", async () =
   assert.match(failed.output.priority.text, action);
 });
 
-test("representative moderate full-stack profile keeps three to five strengths through the complete public pipeline", async () => {
+test("representative moderate full-stack profile keeps only earned strengths while retaining project evidence in diagnosis context", async () => {
   const snapshot = createMentorAnalysisSnapshot(representativeFullStack, {
     analysisId: "representative-full-stack", requestId: "representative-full-stack"
   });
@@ -71,12 +71,16 @@ test("representative moderate full-stack profile keeps three to five strengths t
   const publicAnalysis = createPublicAnalysisV2(snapshot, language);
 
   assert.ok(snapshot.readiness.score < 75);
-  assert.ok(snapshot.strengths.length >= 3 && snapshot.strengths.length <= 5);
+  assert.ok(snapshot.strengths.length <= 3);
   assert.equal(language.dto.strengths.length, snapshot.strengths.length);
   assert.equal(language.output.strengths.length, snapshot.strengths.length);
   assert.equal(publicAnalysis.strengths.length, snapshot.strengths.length);
-  assert.ok(snapshot.strengths.some(({ type }) => type === "technical_capability"));
-  assert.ok(snapshot.strengths.some(({ type }) => type === "professional_evidence"));
+  assert.ok(snapshot.strengths.every(({ type }) => [
+    "project_strength", "academic_strength", "leadership_strength", "profile_skill_strength"
+  ].includes(type)));
+  assert.ok(snapshot.scoreDrivers.some((driver) =>
+    driver.facts.supportingFacts.projectExamples.some(({ name }) => name === "Campus Navigation Application")
+  ));
   assert.equal(publicAnalysis.readiness.score, snapshot.readiness.score);
   assert.deepEqual(findForbiddenPublicKeys(publicAnalysis), []);
 });
