@@ -1,4 +1,3 @@
-console.log("USING ANALYSIS FILE:", __filename);
 const {
   DTO_VERSION,
   validatePresentationSafeGeminiInput
@@ -17,15 +16,17 @@ const publicInsight = (insight) => ({
 
   type: insight.type,
 
+  title: insight.title || insight.type,
+
   facts: insight.facts || {},
 
-  ...(insight.scoring
-    ? {
-        scoring: {
-          ...insight.scoring
-        }
-      }
-    : {}),
+  evidence: {
+    projectExamples: (insight.supportingFacts?.projectExamples || []).slice(0, 2),
+    skillFacts: (insight.supportingFacts?.skillFacts || []).slice(0, 4),
+    academicFacts: (insight.supportingFacts?.academicFacts || []).slice(0, 1),
+    profileFacts: (insight.supportingFacts?.profileFacts || []).slice(0, 4),
+    resumeFacts: (insight.supportingFacts?.resumeFacts || []).slice(0, 4)
+  },
 
   ...(typeof insight.affectsCurrentScore === "boolean"
     ? {
@@ -82,8 +83,6 @@ const createPresentationSafeGeminiDto = (snapshot) => {
     priority: {
   id: snapshot.priority.id,
 
-  sourceId: snapshot.priority.sourceId,
-
   sourceType: snapshot.priority.sourceType,
 
   facts: snapshot.priority.facts,
@@ -107,8 +106,6 @@ const createPresentationSafeGeminiDto = (snapshot) => {
 
   priority: {
     id: snapshot.priority.id,
-
-    sourceId: snapshot.priority.sourceId,
 
     sourceType: snapshot.priority.sourceType,
 
@@ -209,6 +206,8 @@ Do not use headings, bullet points or internal analytical terms inside the diagn
 INSIGHT CARDS
 
 Write exactly one complete sentence for every supplied insight.
+
+If a supplied insight collection is empty, return an empty array for that collection.
 
 Each sentence must:
 
@@ -363,9 +362,6 @@ const generateAnalysisLanguage = async (
   const dto =
     createPresentationSafeGeminiDto(snapshot);
 
-    console.log("\n========== GEMINI DTO ==========");
-    console.dir(dto, { depth: null });
-
   const fallback = () => ({
     source: "deterministic_fallback",
     dto,
@@ -386,9 +382,6 @@ const generateAnalysisLanguage = async (
       Promise.resolve(generated),
       options.timeoutMs
     );
-    
-    console.log("\n========== RAW GEMINI ==========");
-console.log(generatedValue);
 
     const output =
       parseGeneratedOutput(generatedValue);
@@ -409,9 +402,6 @@ console.log(generatedValue);
       };
     }
 
-  console.log("\n========== FINAL OUTPUT ==========");
-console.dir(output, { depth: null });
-  
     return {
       source: "gemini",
       dto,

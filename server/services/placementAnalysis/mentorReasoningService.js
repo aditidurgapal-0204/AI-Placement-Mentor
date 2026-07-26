@@ -39,17 +39,69 @@ const projectFacts = ({ value }) => ({
   complexity: value.complexity || null,
   capabilities: unique(value.capabilities || []).slice(0, 6),
   technologies: unique(value.technologies || []).slice(0, 5),
-  deployed: value.deployment === true || value.deployed === true
+  deployed: value.deploymentStatus === "verified" || value.deployment === true || value.deployed === true
 });
 
 const technicalFamily = (capabilities) => {
   const set = new Set(capabilities || []);
-  if (set.has("fullStack") || (set.has("frontend") && set.has("backend"))) return "end_to_end_delivery";
-  if (set.has("machine_learning")) return "applied_machine_learning";
-  if (set.has("data")) return "data_practice";
+  if (set.has("fullStack") || (set.has("frontend") && set.has("backend"))) return "end_to_end_software_delivery";
+  if (set.has("machineLearning")) return "applied_machine_learning";
+  if (set.has("dataEngineering") || set.has("dataAnalysis")) return "data_practice";
   if (set.has("frontend")) return "interface_engineering";
   if (set.has("backend")) return "service_engineering";
   return "technical_execution";
+};
+
+const supportingFacts = (items = []) => {
+  const projectExamples = projectItems(items).map(projectFacts).slice(0, 2);
+  const skillFacts = items
+    .filter(({ type }) => type === "skill_level")
+    .map(({ capability, value }) => ({ skill: capability, level: value }))
+    .slice(0, 4);
+  const academicFacts = items
+    .filter(({ capability }) => capability === "cgpa")
+    .map(({ value }) => ({ cgpa: Number(value) }))
+    .slice(0, 1);
+  const profileFacts = items
+    .filter(({ type }) => ["preparation_context", "academic_context", "placement_goal"].includes(type))
+    .map(({ capability, value }) => ({ type: capability, value }))
+    .slice(0, 4);
+  const resumeFacts = items
+    .filter(({ domain }) => domain === "resume")
+    .filter(({ type }) => !["project_evidence", "demonstrated_capability", "technology_exposure", "demonstrated_method", "resume_evidence_status"].includes(type))
+    .map(({ type, capability, value }) => ({
+      type,
+      capability,
+      value: value && typeof value === "object" && !Array.isArray(value)
+        ? Object.fromEntries(Object.entries(value).filter(([key]) => ["exists", "role", "organization", "count", "publicationType", "platformDetected", "context"].includes(key)))
+        : value
+    }))
+    .slice(0, 4);
+  return { projectExamples, skillFacts, academicFacts, profileFacts, resumeFacts };
+};
+
+const categoryTitle = (value) => String(value || "profile evidence")
+  .replace(/_/g, " ")
+  .replace(/([a-z])([A-Z])/g, "$1 $2")
+  .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+const withPublicShape = (insight, title, items, contributionIds = [], scoreEffect = 0) => ({
+  ...insight,
+  title,
+  supportingFacts: supportingFacts(items),
+  evidenceIds: unique(items.map(({ id }) => id)),
+  contributionIds: unique(contributionIds),
+  scoreEffect,
+  internalTrace: trace(items.map(({ id }) => id), contributionIds)
+});
+
+const strengthPriority = {
+  technical_capability: 1,
+  professional_evidence: 2,
+  academic_strength: 3,
+  profile_skill_strength: 4,
+  leadership_strength: 5,
+  preparation_capacity_strength: 6
 };
 
 const buildStrengths = (evidence, targetRole) => {
@@ -61,13 +113,12 @@ const buildStrengths = (evidence, targetRole) => {
     const family = technicalFamily(project.value.capabilities);
     if (usedFamilies.has(family)) continue;
     usedFamilies.add(family);
-    strengths.push({
+    strengths.push(withPublicShape({
       id: `strength-project-${strengths.length + 1}`,
-      type: "project_strength",
+      type: "technical_capability",
       facts: { targetRole, category: family, project: projectFacts(project) },
-      confidence: confidence([project]),
-      internalTrace: trace([project.id], [])
-    });
+      confidence: confidence([project])
+    }, categoryTitle(family), [project]));
   }
 
   const cgpa = evidence.find(({ capability }) => capability === "cgpa");
@@ -76,8 +127,25 @@ const buildStrengths = (evidence, targetRole) => {
     type: "academic_strength",
     facts: { targetRole, cgpa: Number(cgpa.value) },
     confidence: confidence([cgpa]),
+    title: "Academic Consistency",
+    supportingFacts: supportingFacts([cgpa]),
+    evidenceIds: [cgpa.id],
+    contributionIds: [],
+    scoreEffect: 0,
     internalTrace: trace([cgpa.id], [])
   });
+
+  const strongSkills = evidence.filter(({ type, value }) =>
+    type === "skill_level" && ["advanced", "strong"].includes(String(value || "").toLowerCase())
+  );
+  if (strongSkills.length) {
+    strengths.push(withPublicShape({
+      id: "strength-core-skills",
+      type: "profile_skill_strength",
+      facts: { targetRole, skills: strongSkills.map(({ capability, value }) => ({ skill: capability, level: value })).slice(0, 4) },
+      confidence: confidence(strongSkills)
+    }, "Profile Skill Strength", strongSkills));
+  }
 
   const leadership = evidence.find(({ type }) =>
     ["responsibility_evidence", "activity_evidence"].includes(type)
@@ -92,10 +160,51 @@ const buildStrengths = (evidence, targetRole) => {
       activity: leadership.type === "activity_evidence" ? leadership.capability : null
     },
     confidence: confidence([leadership]),
+    title: "Leadership And Initiative",
+    supportingFacts: supportingFacts([leadership]),
+    evidenceIds: [leadership.id],
+    contributionIds: [],
+    scoreEffect: 0,
     internalTrace: trace([leadership.id], [])
   });
 
-  return strengths.slice(0, MENTOR_REASONING_RULES.strengths.maximum);
+  const professional = evidence.filter(({ type, capability }) =>
+    ["professional_experience", "research_evidence", "collaboration_evidence", "practice_evidence", "participation_evidence", "portfolio_evidence", "learning_evidence"].includes(type)
+    && !(type === "learning_evidence" && capability === "certification_detail")
+  );
+  if (professional.length) {
+    strengths.push(withPublicShape({
+      id: "strength-professional-evidence",
+      type: "professional_evidence",
+      facts: {
+        targetRole,
+        evidenceTypes: unique(professional.map(({ capability }) => capability)).slice(0, 5)
+      },
+      confidence: confidence(professional)
+    }, "Professional Evidence", professional));
+  }
+
+  const preparation = evidence.filter(({ capability }) => ["timeline_months", "daily_study_hours"].includes(capability));
+  const months = Number(preparation.find(({ capability }) => capability === "timeline_months")?.value);
+  const hours = Number(preparation.find(({ capability }) => capability === "daily_study_hours")?.value);
+  if (Number.isFinite(months) && Number.isFinite(hours) && months >= 3 && hours >= 3) {
+    strengths.push(withPublicShape({
+      id: "strength-preparation-capacity",
+      type: "preparation_capacity_strength",
+      facts: { targetRole, timelineMonths: months, dailyStudyHours: hours },
+      confidence: confidence(preparation)
+    }, "Preparation Capacity", preparation));
+  }
+
+  const ranked = strengths
+    .filter((item) => item.internalTrace.evidenceIds.length + item.internalTrace.contributionIds.length > 0)
+    .sort((a, b) =>
+      (strengthPriority[a.type] || 99) - (strengthPriority[b.type] || 99)
+      || b.confidence.value - a.confidence.value
+      || a.id.localeCompare(b.id)
+    );
+
+  return ranked.slice(0, MENTOR_REASONING_RULES.strengths.maximum);
 };
 
 const sourceType = (source = "") => {
@@ -155,14 +264,13 @@ const buildScoreDrivers = (ledger, evidence) => (ledger.contributions || [])
   .map((item, index) => {
     const type = sourceType(item.source);
     const related = relatedEvidence(evidence, type);
-    return {
+    return withPublicShape({
       id: `driver-${index + 1}`,
       type,
       facts: { source: item.source, earnedPoints: Number(item.points) },
       scoring: { affectsCurrentScore: true, earnedPoints: Number(item.points) },
-      confidence: confidence(related),
-      internalTrace: trace(related.map(({ id }) => id), item.id ? [item.id] : [])
-    };
+      confidence: related.length ? confidence(related) : { value: 1, basis: "contribution" }
+    }, categoryTitle(type), related, item.id ? [item.id] : [], Number(item.points));
   })
   .sort((a, b) => b.scoring.earnedPoints - a.scoring.earnedPoints);
 
@@ -184,12 +292,13 @@ const buildScoreBlockers = (ledger, evidence, context) => {
 
     if (earned < 0) {
       add({
-        id: `blocker-${category}`,
-        type: "score_penalty",
-        facts: { category, targetRole: context.targetRole, companyType: context.companyType },
-        scoring: { affectsCurrentScore: true, penaltyPoints: earned },
-        confidence: confidence([]),
-        internalTrace: trace([], contribution.id ? [contribution.id] : [])
+        ...withPublicShape({
+          id: `blocker-${category}`,
+          type: "score_penalty",
+          facts: { category, targetRole: context.targetRole, companyType: context.companyType },
+          scoring: { affectsCurrentScore: true, penaltyPoints: earned },
+          confidence: { value: 1, basis: "contribution" }
+        }, categoryTitle(category), [], contribution.id ? [contribution.id] : [], earned)
       });
       continue;
     }
@@ -197,7 +306,7 @@ const buildScoreBlockers = (ledger, evidence, context) => {
     if (Number.isFinite(maximum) && maximum - earned >= 0.75) {
       const gap = skillGap(evidence, category);
       const related = relatedEvidence(evidence, category);
-      add({
+      add(withPublicShape({
         id: `blocker-${category}`,
         type: gap ? "skill_gap" : "score_gap",
         facts: {
@@ -211,16 +320,15 @@ const buildScoreBlockers = (ledger, evidence, context) => {
           maximumPoints: maximum,
           gapPoints: Number((maximum - earned).toFixed(2))
         },
-        confidence: confidence(related),
-        internalTrace: trace(related.map(({ id }) => id), contribution.id ? [contribution.id] : [])
-      });
+        confidence: related.length ? confidence(related) : { value: 1, basis: "contribution" }
+      }, categoryTitle(category), related, contribution.id ? [contribution.id] : [], Number((maximum - earned).toFixed(2))));
     }
   }
 
   ["dsa", "dbms", "os", "networks", "aptitude", "communication"].forEach((capability) => {
     const gap = skillGap(evidence, capability);
     if (!gap) return;
-    add({
+    add(withPublicShape({
       id: `blocker-${capability}`,
       type: "skill_gap",
       facts: {
@@ -231,9 +339,8 @@ const buildScoreBlockers = (ledger, evidence, context) => {
         targetRole: context.targetRole
       },
       scoring: { affectsCurrentScore: true, gapPoints: 1 },
-      confidence: confidence([gap.item]),
-      internalTrace: trace([gap.item.id], [])
-    });
+      confidence: confidence([gap.item])
+    }, categoryTitle(capability), [gap.item], [], 1));
   });
 
   return blockers.sort((a, b) =>
@@ -252,14 +359,13 @@ const buildCareerRisks = (evidence, context) => {
   const addAbsent = (capability, type) => {
     const item = statuses.get(capability);
     if (!item || item.value !== "not_detected") return;
-    risks.push({
+    risks.push(withPublicShape({
       id: `risk-${type}`,
       type,
       facts: { capability, targetRole: context.targetRole },
       affectsCurrentScore: false,
-      confidence: confidence([item]),
-      internalTrace: trace([item.id], [])
-    });
+      confidence: confidence([item])
+    }, categoryTitle(type), [item], [], 0));
   };
 
   addAbsent("internship", "professional_exposure_gap");
@@ -281,9 +387,12 @@ const buildPreparation = (evidence, score) => {
   const capacity = MENTOR_REASONING_RULES.preparation.capacityThresholds;
   const feasibility = availableHours >= capacity.strong ? "strong"
     : availableHours >= capacity.moderate ? "moderate" : "limited";
+  const improvement = MENTOR_REASONING_RULES.preparation.improvementThresholds;
+  const improvementNeed = pointsToNext >= improvement.substantial ? "substantial"
+    : pointsToNext >= improvement.moderate ? "moderate" : "focused";
   return {
     feasibility,
-    improvementPotential: `${feasibility}_capacity`,
+    improvementPotential: `${feasibility}_capacity_for_${improvementNeed}_improvement`,
     verifiedInputs: ["timelineMonths", "dailyStudyHours", "currentReadiness", "requiredImprovement"],
     facts: { timelineMonths: months, dailyStudyHours: dailyHours, availableHours, pointsToNextLevel: pointsToNext },
     internalTrace: trace(
@@ -293,7 +402,7 @@ const buildPreparation = (evidence, score) => {
   };
 };
 
-const selectPriority = ({ scoreBlockers, careerRisks, strengths, preparation }) => {
+const selectPriority = ({ scoreBlockers, careerRisks, strengths, scoreDrivers, preparation }) => {
   const candidates = [
     ...scoreBlockers.map((item) => ({
       item,
@@ -304,7 +413,7 @@ const selectPriority = ({ scoreBlockers, careerRisks, strengths, preparation }) 
   ].sort((a, b) => b.rank - a.rank);
 
   const selected = candidates[0];
-  const source = selected?.item || strengths[0];
+  const source = selected?.item || strengths[0] || scoreDrivers[0];
   if (!source) throw new Error("A traceable insight is required to select a priority.");
 
   return {
@@ -316,7 +425,9 @@ const selectPriority = ({ scoreBlockers, careerRisks, strengths, preparation }) 
       targetFacts: source.facts,
       reason: selected?.sourceType === "score_blocker"
         ? "largest_current_readiness_gap"
-        : "highest_priority_employability_risk"
+        : selected?.sourceType === "career_risk"
+          ? "highest_priority_employability_risk"
+          : "highest_value_existing_driver_to_extend"
     },
     expectedImpact: {
       readinessScore: selected?.sourceType === "score_blocker",
@@ -341,7 +452,7 @@ const buildMentorReasoning = ({ canonicalEvidence, scoreLedger, context }) => {
     ? buildCareerRisks(accepted, context)
     : [];
   const preparation = buildPreparation(accepted, scoreLedger.score);
-  const priority = selectPriority({ scoreBlockers, careerRisks, strengths, preparation });
+  const priority = selectPriority({ scoreBlockers, careerRisks, strengths, scoreDrivers, preparation });
   const band = readinessBand(scoreLedger.score);
 
   return {

@@ -215,6 +215,20 @@ const scoreLeadership = (resumeEvidence, contributions) => {
   return points;
 };
 
+const containsVerifiedResumeEvidence = (resumeEvidence = {}) => {
+  if (resumeEvidence?.resumeEvaluated === true) return true;
+  if (!resumeEvidence || typeof resumeEvidence !== "object") return false;
+
+  return resumeEvidence.internship?.exists === true
+    || resumeEvidence.leadership?.exists === true
+    || resumeEvidence.research?.exists === true
+    || resumeEvidence.hackathons?.exists === true
+    || resumeEvidence.openSource?.exists === true
+    || resumeEvidence.hasGitHub === true
+    || Number(resumeEvidence.certifications?.count) > 0
+    || Number(resumeEvidence.projects?.projectCount) > 0;
+};
+
 const targetDifficultyFactor = (companyRules = {}) => {
   const failurePenalty = Math.abs(Number(companyRules.failurePenalty) || 0);
   if (failurePenalty >= 30) return 0.9;
@@ -232,7 +246,7 @@ const calculateReadinessScoreBreakdown = (
 ) => {
   const contributions = [];
   const roleConfig = getRoleConfig(targetRole);
-  const hasResumeEvidence = Boolean(resumeEvidence);
+  const hasResumeEvidence = containsVerifiedResumeEvidence(resumeEvidence);
 
   const categoryScores = {
     technicalSkills: scoreTechnicalSkills(skills, roleConfig, contributions),
@@ -259,9 +273,18 @@ const calculateReadinessScoreBreakdown = (
   });
 
   const rawScore = Object.values(categoryScores).reduce((sum, value) => sum + value, 0);
+  const availableMaximum = hasResumeEvidence
+    ? 100
+    : COMMON_CATEGORY_MAXIMUMS.technicalSkills
+      + COMMON_CATEGORY_MAXIMUMS.academics
+      + COMMON_CATEGORY_MAXIMUMS.communicationAptitude
+      + COMMON_CATEGORY_MAXIMUMS.preparationCapacity;
   const difficultyFactor = targetDifficultyFactor(companyRules);
-  const adjustedScore = rawScore * difficultyFactor;
-  const companyAdjustment = adjustedScore - rawScore;
+  const adjustedTotal = rawScore * difficultyFactor;
+  const adjustedScore = hasResumeEvidence
+    ? adjustedTotal
+    : availableMaximum > 0 ? adjustedTotal / availableMaximum * 100 : 0;
+  const companyAdjustment = adjustedTotal - rawScore;
 
   addContribution(contributions, "company.targetDifficulty", companyAdjustment, {
     category: "targetDifficulty",
@@ -275,6 +298,8 @@ const calculateReadinessScoreBreakdown = (
   return {
     score,
     rawScore: round2(rawScore),
+    availableMaximum: round2(availableMaximum),
+    scoreBasis: hasResumeEvidence ? "profile_and_resume" : "profile_only",
     categoryScores: Object.fromEntries(Object.entries(categoryScores).map(([key, value]) => [key, round2(value)])),
     categoryMaximums: COMMON_CATEGORY_MAXIMUMS,
     targetDifficultyFactor: difficultyFactor,

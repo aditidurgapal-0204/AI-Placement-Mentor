@@ -12,6 +12,48 @@ const publicLanguageInsight = (item) => ({
   text: item.text
 });
 
+const humanize = (value) => String(value || "")
+  .replace(/_/g, " ")
+  .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+const insightSubject = (item) => {
+  const facts = item?.facts || {};
+  if (facts.skill) return humanize(facts.skill);
+  if (facts.category) return humanize(facts.category);
+  if (facts.capability) return humanize(facts.capability);
+  if (facts.project?.projectType) return humanize(facts.project.projectType);
+  return humanize(item?.type || "profile evidence");
+};
+
+const createReadinessExplanation = (snapshot) => {
+  const label = labelFor(snapshot.readiness.labelKey);
+  const targetRole = snapshot.context.targetRole || "the selected role";
+  const companyType = snapshot.context.companyType || "the selected company type";
+  const strongestDriver = snapshot.scoreDrivers?.[0] || snapshot.strengths?.[0] || null;
+  const biggestBlocker = snapshot.scoreBlockers?.[0] || null;
+  const mainRisk = snapshot.careerRisks?.[0] || null;
+
+  const parts = [
+    `This ${label.toLowerCase()} score reflects the verified profile and resume evidence available for ${targetRole} at ${companyType}.`
+  ];
+
+  if (strongestDriver) {
+    parts.push(`${insightSubject(strongestDriver)} is currently helping the readiness result.`);
+  }
+
+  if (biggestBlocker) {
+    parts.push(`${insightSubject(biggestBlocker)} is the clearest score-limiting area to improve next.`);
+  } else if (mainRisk) {
+    parts.push(`${insightSubject(mainRisk)} is an important career risk to address even though it is not treated as a current score penalty.`);
+  }
+
+  if (snapshot.context.resumeProvided === false) {
+    parts.push("Because no resume was assessed, resume-based proof such as projects, internships, portfolio evidence and leadership can only be evaluated after it is provided.");
+  }
+
+  return parts.join(" ");
+};
+
 const createPublicAnalysisV2 = (snapshot, language) => {
   if (!snapshot?.metadata?.id) {
     throw new Error("A valid mentor analysis snapshot is required.");
@@ -34,6 +76,7 @@ const createPublicAnalysisV2 = (snapshot, language) => {
       score: snapshot.readiness.score,
       label: labelFor(snapshot.readiness.labelKey),
       labelKey: snapshot.readiness.labelKey,
+      explanation: createReadinessExplanation(snapshot),
 
       nextLevel: {
         label: labelFor(snapshot.readiness.nextLabelKey),

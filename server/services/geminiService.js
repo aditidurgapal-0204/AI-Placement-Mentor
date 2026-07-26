@@ -6,10 +6,6 @@
 
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { computeReadiness } = require("./readinessEngine");
-const { detectSections } = require("./resume/sectionDetector");
-
-// Temporary diagnostic requested by the user. Keep until explicitly asked to remove it.
-let debugAnalysisDumpEmitted = false;
 
 const humanize = (value) => String(value || "current capability")
   .replace(/_/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
@@ -43,7 +39,7 @@ const toFallbackDashboardEvidence = (engineFacts, targetRole) => ({
 });
 
 const fallbackDiagnosis = (engineFacts, evidence, profileData) => {
-  const strength = evidence.strengths[0] || "You have a useful starting point in your current placement preparation.";
+  const strength = evidence.strengths[0] || "There is not enough verified evidence yet to highlight a clear strength confidently.";
   const weakness = evidence.weaknesses[0] || "Your next step is to build clearer proof of role-relevant preparation.";
   const basis = engineFacts.extractedMetrics.resumeEvaluated
     ? "your onboarding profile and uploaded resume"
@@ -149,22 +145,6 @@ const compactTopEvidence = (topEvidence) => topEvidence ? {
   strongestDatabase: compactTopFact(topEvidence.strongestDatabase)
 } : null;
 
-const buildSafeSectionDebug = (resumeText) => {
-  const sections = detectSections(resumeText || "");
-
-  return Object.fromEntries(Object.entries(sections).map(([name, content]) => {
-    const lines = content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-    const summary = {
-      present: lines.length > 0,
-      lineCount: lines.length,
-      characterCount: content.length
-    };
-
-    if (name === "certifications") summary.entries = lines;
-    return [name, summary];
-  }));
-};
-
 const testConnection = async () => {
   const model = getGeminiClient().getGenerativeModel({
     model: "gemini-2.5-flash"
@@ -266,10 +246,10 @@ The supplied strengths and weaknesses are already selected, grouped and ordered 
 Return one JSON object with exactly these fields:
 
 - "diagnosis": the diagnosis text
-- "strengths": an array of 4 to 6 concise, recruiter-friendly strength statements derived only from FACTS.strengths
+- "strengths": an array of 0 to 6 concise, recruiter-friendly strength statements derived only from FACTS.strengths
 - "weaknesses": an array of 3 to 6 constructive, role-relevant mentor statements derived only from FACTS.weaknesses
 
-For strengths, express each supplied mentor insight as one capability observation. Never expose internal fact types or raw labels.
+For strengths, express each supplied mentor insight as one capability observation. If FACTS.strengths is empty, return an empty strengths array.
 
 Each strength must be one short sentence of approximately 8 to 18 words. Never include URLs, dates, project headings, raw evidence or descriptions.
 
@@ -292,53 +272,6 @@ FACTS
 ${JSON.stringify(mentorFacts, null, 2)}
 
 `.trim();
-
-if (!debugAnalysisDumpEmitted) {
-  debugAnalysisDumpEmitted = true;
-  const { resumeText, ...safeProfileData } = profileData;
-
-  console.log("========================================");
-  console.log("DEBUG ANALYSIS DUMP (TEMPORARY, ONE REQUEST ONLY)");
-  console.log("========================================");
-  console.dir({
-    requestId,
-    parsedResumeSections: buildSafeSectionDebug(resumeText),
-    leadershipInterpretation: {
-      dedicatedLeadershipSectionDetected: buildSafeSectionDebug(resumeText).leadership.present,
-      leadershipEvidenceDetected: engineFacts.resumeFacts.leadership?.exists || false,
-      evidenceSourcesChecked: ["leadership", "extracurricular"]
-    },
-    profileData: {
-      ...safeProfileData,
-      resumeProvided: typeof resumeText === "string" && resumeText.trim().length > 0,
-      resumeCharacterCount: typeof resumeText === "string" ? resumeText.length : 0
-    },
-    resumeMetrics: engineFacts.resumeFacts,
-    projectSummaries: engineFacts.resumeFacts.projects?.summaries || [],
-    perProjectCapabilities: engineFacts.resumeFacts.projects?.summaries || [],
-    perProjectEvidence: engineFacts.resumeEvidenceModel?.projects || [],
-    unknownTechnologiesPreserved: (engineFacts.resumeEvidenceModel?.projects || []).flatMap((project) => project.unknownTechnologies || []),
-    rankedStrengthCandidates: engineFacts.rankedStrengthCandidates,
-    selectedStrengths: engineFacts.strengthFacts,
-    strongestProject: engineFacts.topEvidence?.strongestProject,
-    scoreBreakdown: engineFacts.scoreBreakdown,
-    mentorFacts,
-    factualStrengths: engineFacts.factualStrengths,
-    profileWeaknesses: engineFacts.profileWeaknesses,
-    resumeWeaknesses: engineFacts.resumeWeaknesses,
-    readinessScore: engineFacts.readinessScore,
-    dashboardEvidence: fallbackDashboardEvidence,
-    finalPromptStatistics: {
-      promptLength: prompt.length,
-      mentorFactsSize: JSON.stringify(mentorFacts).length,
-      promptTokenCount: null,
-      promptTokenCountNote: "Reported by the existing Gemini response metadata after generation."
-    }
-  }, { depth: null });
-  console.log("========================================");
-  console.log("END DEBUG ANALYSIS DUMP");
-  console.log("========================================");
-}
 
 let rawResponseText = null;
 

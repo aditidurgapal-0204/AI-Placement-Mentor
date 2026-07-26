@@ -8,7 +8,7 @@ const create = (profile, id) => createMentorAnalysisSnapshot(profile, {
   analysisId: `analysis-${id}`, requestId: `request-${id}`, createdAt: "2026-07-20T00:00:00.000Z"
 });
 
-test("negative score contributions become separate traceable score blockers", () => {
+test("score contributions become separate traceable current-readiness blockers", () => {
   const profile = profileWith({
     companyType: "MAANG",
     skills: { dsa: "Beginner", os: "Beginner" },
@@ -19,8 +19,12 @@ test("negative score contributions become separate traceable score blockers", ()
 
   assert.ok(snapshot.scoreBlockers.length > 0);
   snapshot.scoreBlockers.forEach((blocker) => {
-    assert.ok(blocker.scoreEffect < 0);
-    assert.ok(blocker.contributionIds.every((id) => ledgerById.get(id)?.sign === "negative"));
+    assert.equal(blocker.scoring.affectsCurrentScore, true);
+    assert.ok(blocker.scoring.gapPoints > 0 || blocker.scoring.penaltyPoints < 0);
+    blocker.contributionIds.forEach((id) => assert.ok(ledgerById.has(id)));
+    if (blocker.scoring.penaltyPoints < 0) {
+      assert.ok(blocker.contributionIds.every((id) => ledgerById.get(id)?.sign === "negative"));
+    }
   });
   assert.ok(snapshot.careerRisks.every(({ affectsCurrentScore }) => affectsCurrentScore === false));
 });
@@ -39,12 +43,13 @@ test("first priority selects the strongest score blocker when one exists", () =>
   assert.ok(snapshot.priority.internalTrace.contributionIds.length > 0);
 });
 
-test("first priority selects a career risk when there is no negative score contribution", () => {
+test("career risks remain separate even when first priority selects a score blocker", () => {
   const snapshot = create(profiles.fullStack, "risk-priority");
-  assert.equal(snapshot.scoreBlockers.length, 0);
-  assert.equal(snapshot.priority.sourceType, "career_risk");
-  assert.ok(snapshot.careerRisks.some(({ id }) => id === snapshot.priority.sourceId));
-  assert.equal(snapshot.priority.expectedImpact.readinessScore, false);
+  assert.ok(snapshot.scoreBlockers.length > 0);
+  assert.ok(snapshot.careerRisks.length > 0);
+  assert.equal(snapshot.priority.sourceType, "score_blocker");
+  assert.ok(snapshot.scoreBlockers.some(({ id }) => id === snapshot.priority.sourceId));
+  assert.equal(snapshot.priority.expectedImpact.readinessScore, true);
   assert.equal(snapshot.priority.expectedImpact.employabilityConfidence, true);
-  assert.ok(snapshot.priority.internalTrace.evidenceIds.length > 0);
+  assert.ok(snapshot.careerRisks.every(({ affectsCurrentScore }) => affectsCurrentScore === false));
 });

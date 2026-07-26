@@ -5,9 +5,11 @@ import { presentStrengths } from "./strengthPresentation";
 export interface DashboardAnalysisPresentation {
   readiness: { score: number; label: string; summary: string };
   diagnosis: string;
-  strengths: string[];
+  strengths: { id: string; text: string }[];
+  scoreBlockers: { id: string; text: string }[];
+  careerRisks: { id: string; text: string }[];
   limitations: string[];
-  firstPriority: string | null;
+  firstPriority: { id: string; text: string } | null;
   context: { targetRole: string; companyType: string } | null;
 }
 
@@ -49,12 +51,14 @@ export const selectDashboardAnalysis = (
         summary: analysisV2.readiness.explanation
       },
       diagnosis: analysisV2.diagnosis,
-      strengths: analysisV2.strengths.map(({ text }) => text.trim()).filter(Boolean),
+      strengths: analysisV2.strengths.map(({ id, text }) => ({ id, text: text.trim() })).filter(({ text }) => Boolean(text)),
+      scoreBlockers: analysisV2.scoreBlockers.map(({ id, text }) => ({ id, text: text.trim() })).filter(({ text }) => Boolean(text)),
+      careerRisks: analysisV2.careerRisks.map(({ id, text }) => ({ id, text: text.trim() })).filter(({ text }) => Boolean(text)),
       limitations: selectLimitations([
         ...analysisV2.scoreBlockers.map(({ text }) => text),
         ...analysisV2.careerRisks.map(({ text }) => text)
       ], firstPriority),
-      firstPriority,
+      firstPriority: { id: analysisV2.firstPriority.id, text: firstPriority },
       context: {
         targetRole: analysisV2.context.targetRole,
         companyType: analysisV2.context.companyType
@@ -70,7 +74,10 @@ export const selectDashboardAnalysis = (
       summary: "Your current result reflects the profile and preparation information available for this analysis."
     },
     diagnosis: legacyAnalysis.diagnosis,
-    strengths: presentStrengths(legacyAnalysis.strengths, legacyAnalysis.strengthFacts),
+    strengths: presentStrengths(legacyAnalysis.strengths, legacyAnalysis.strengthFacts)
+      .map((text, index) => ({ id: `legacy-strength-${index + 1}`, text })),
+    scoreBlockers: legacyAnalysis.weaknesses.map((text, index) => ({ id: `legacy-weakness-${index + 1}`, text })),
+    careerRisks: [],
     limitations: selectLimitations(legacyAnalysis.weaknesses, null),
     firstPriority: null,
     context: null

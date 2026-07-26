@@ -11,8 +11,8 @@ const MENTOR_REASONING_RULES = Object.freeze({
     }
   },
   strengths: {
-    minimum: 1,
-    maximum: 6,
+    minimum: 0,
+    maximum: 5,
     grouping: {
       requireSharedCapabilityOrSource: true,
       maximumPublicEvidenceSummaries: 1
