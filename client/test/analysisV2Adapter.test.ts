@@ -223,6 +223,41 @@ test("dashboard presentation keeps First Priority distinct and limits semantic l
   assert.equal(dashboard?.limitations.some((text) => /DSA sessions every week/i.test(text)), false);
 });
 
+test("dashboard keeps career-risk limitations visible when priority shares only role boilerplate", () => {
+  const source = parseAnalysisV2({
+    ...v2(),
+    firstPriority: {
+      id: "priority-1",
+      text: "Your first priority is to improve your communication skills for the Software Development Engineer role.",
+      preparationFeasibility: "strong"
+    },
+    scoreBlockers: [
+      {
+        id: "blocker-1",
+        text: "Your communication skills are currently at an average level for a Software Development Engineer role."
+      }
+    ],
+    careerRisks: [
+      {
+        id: "risk-1",
+        text: "There is a gap in your professional exposure, specifically lacking internship experience, which is important for a Software Development Engineer role."
+      },
+      {
+        id: "risk-2",
+        text: "You currently lack experience with cloud technologies, which is a valuable capability for a Software Development Engineer."
+      },
+      {
+        id: "risk-3",
+        text: "There is a gap in your experience with scalability, a key capability for a Software Development Engineer role."
+      }
+    ]
+  });
+  const dashboard = selectDashboardAnalysis(legacy(), source);
+  assert.ok((dashboard?.limitations.length || 0) >= 2);
+  assert.ok(dashboard?.limitations.some((text) => /internship/i.test(text)));
+  assert.ok(dashboard?.limitations.some((text) => /cloud/i.test(text)));
+});
+
 test("representative public V2 strengths survive client validation and dashboard presentation", () => {
   const texts = [
     "Your projects show that you can work across the frontend, backend, and database, which is valuable for Full-Stack Engineer roles.",

@@ -11,10 +11,20 @@ export interface DashboardAnalysisPresentation {
   context: { targetRole: string; companyType: string } | null;
 }
 
+const STOP_WORDS = new Set([
+  "your", "this", "that", "with", "from", "into", "first", "which", "while", "their",
+  "have", "has", "been", "being", "were", "was", "are", "for", "and", "the", "you",
+  "currently", "current", "overall", "important", "valuable", "relevant", "expected",
+  "software", "development", "engineer", "engineering", "role", "readiness", "skills",
+  "skill", "experience", "capability", "capabilities", "selected", "target", "company",
+  "placement", "level", "affecting", "represents", "largest", "improve", "priority",
+  "strong", "average", "beginner", "intermediate", "advanced"
+]);
+
 const normalizedWords = (value: string): Set<string> => new Set(value.toLowerCase()
   .replace(/[^a-z0-9\s-]/g, " ")
   .split(/\s+/)
-  .filter((word) => word.length > 3 && !["your", "this", "that", "with", "from", "into", "first"].includes(word)));
+  .filter((word) => word.length > 3 && !STOP_WORDS.has(word)));
 
 const semanticOverlap = (left: string, right: string): number => {
   const a = normalizedWords(left);
@@ -24,11 +34,16 @@ const semanticOverlap = (left: string, right: string): number => {
   return shared / Math.min(a.size, b.size);
 };
 
+/**
+ * Keep distinct limitation cards visible.
+ * Priority overlap must be strict so shared role boilerplate does not wipe the list.
+ */
 const selectLimitations = (items: string[], priority: string | null): string[] => {
   const selected: string[] = [];
   for (const item of items) {
     const text = item.trim();
-    if (!text || (priority && semanticOverlap(text, priority) >= 0.18)) continue;
+    if (!text) continue;
+    if (priority && semanticOverlap(text, priority) >= 0.5) continue;
     if (selected.some((existing) => semanticOverlap(existing, text) >= 0.55)) continue;
     selected.push(text);
     if (selected.length === 3) break;

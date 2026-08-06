@@ -78,5 +78,7 @@ test("representative moderate full-stack profile keeps three to five strengths t
   assert.ok(snapshot.strengths.some(({ type }) => type === "technical_capability"));
   assert.ok(snapshot.strengths.some(({ type }) => type === "professional_evidence"));
   assert.equal(publicAnalysis.readiness.score, snapshot.readiness.score);
+  assert.match(publicAnalysis.readiness.explanation, new RegExp(`${publicAnalysis.readiness.score}%`));
+  assert.match(publicAnalysis.readiness.explanation, /readiness/i);
   assert.deepEqual(findForbiddenPublicKeys(publicAnalysis), []);
 });

@@ -72,3 +72,45 @@ test("preserves leadership detection from extracurricular content", () => {
 test("does not invent leadership evidence", () => {
   assert.equal(metricsFor("EDUCATION\nEngineering").leadership.exists, false);
 });
+
+test("detects summer intern titles in experience sections", () => {
+  const text = [
+    "EXPERIENCE",
+    "Summer Intern | Product Labs",
+    "Built internal tooling with a product engineering team.",
+    "EDUCATION",
+    "Bachelor of Engineering"
+  ].join("\n");
+  assert.equal(metricsFor(text).internship.exists, true);
+  assert.equal(metricsFor(text).internship.organization, "Product Labs");
+});
+
+test("representative Aditi-like resume keeps leadership, projects, GitHub, and certifications stable", () => {
+  const text = [
+    "Aditi Durgapal",
+    "GitHub: https://github.com/aditi",
+    "PROJECTS",
+    "AIPlacementMentor | 2025",
+    "Built a full-stack mentor platform with authentication and PostgreSQL.",
+    "ModyMap | 2025",
+    "Built a modular route visualization application with OpenStreetMap integration.",
+    "EXTRA-CURRICULAR ACTIVITIES",
+    "Technical Team Coordinator – Enginium",
+    "CERTIFICATIONS",
+    "Completed Python Programming certificate",
+    "Completed Web Development certificate",
+    "Completed Data Structures certificate",
+    "Completed SQL certificate",
+    "EDUCATION",
+    "Bachelor of Engineering"
+  ].join("\n");
+
+  const metrics = metricsFor(text);
+  assert.equal(metrics.leadership.exists, true);
+  assert.equal(metrics.leadership.role, "Technical Team Coordinator");
+  assert.equal(metrics.leadership.organization, "Enginium");
+  assert.equal(metrics.hasGitHub, true);
+  assert.equal(metrics.internship.exists, false);
+  assert.ok(metrics.certifications.count >= 4);
+  assert.equal(metrics.openSource.exists, false);
+});
