@@ -255,16 +255,23 @@ const claimProjectNames = (text) =>
     .map((match) => normalize(match[1]))
     .filter(
       (name) =>
-        ![
+        name
+        && name.length > 2
+        && ![
           "your",
           "the",
           "this",
           "a",
           "an",
+          "ai",
+          "ml",
+          "ai ml",
           "full stack",
           "frontend",
           "backend",
           "machine learning",
+          "software development",
+          "end to end",
         ].includes(name)
     );
 
@@ -330,8 +337,10 @@ const validateGeminiGrounding = (output, input) => {
       const isApproved = [...projects].some(
         (approved) =>
           approved === name ||
+          approved === name.replace(/^(?:the|a|an)\s+/, "") ||
           approved.startsWith(`${name} `) ||
-          name.startsWith(`${approved} `)
+          name.startsWith(`${approved} `) ||
+          name.endsWith(` ${approved}`)
       );
 
       if (!isApproved) {
@@ -365,7 +374,7 @@ const validateGeminiGrounding = (output, input) => {
     });
   });
 
-  const combined = normalize(outputTexts(output).join(" "));
+  const rawCombined = outputTexts(output).join(" ");
   const facts = collectFactObjects(input);
 
   const hasFact = (type) =>
@@ -374,7 +383,8 @@ const validateGeminiGrounding = (output, input) => {
         fact.type ||
           fact.factType ||
           fact.kind ||
-          fact.category
+          fact.category ||
+          fact.capability
       );
 
       if (factType !== normalize(type)) {
@@ -387,6 +397,10 @@ const validateGeminiGrounding = (output, input) => {
         fact.exists ??
         fact.detected;
 
+      if (detail === "not_detected" || detail === false) {
+        return false;
+      }
+
       return (
         detail === "detected" ||
         detail === true ||
@@ -395,25 +409,71 @@ const validateGeminiGrounding = (output, input) => {
       );
     });
 
-  if (
-    /\binternship\b/.test(combined) &&
-    !hasFact("internship") &&
-    !/\b(?:absence|without|no|limited|needs?|gain)\b/.test(combined)
-  ) {
+  const insights = evidenceInsights(input);
+  const hasInsightType = (type) =>
+    insights.some((insight) => normalize(insight?.type) === normalize(type));
+
+  const hasEvidenceSignal = (capability) =>
+    hasFact(capability)
+    || hasInsightType(capability)
+    || (capability === "internship" && (
+      hasInsightType("professional_experience")
+      || insights.some((insight) =>
+        normalize(insight?.facts?.capability) === "internship"
+        && insight?.facts?.value !== "not_detected"
+        && !normalize(insight?.type).includes("gap"))
+    ))
+    || (capability === "leadership" && hasInsightType("leadership_strength"))
+    || (capability === "code_portfolio" && (hasInsightType("code_portfolio") || hasFact("github")))
+    || (capability === "certification" && (hasFact("certification_detail") || hasInsightType("learning_evidence")));
+
+  const sentenceMentions = (subjectPattern, mode) => {
+    const subject = new RegExp(`\\b(?:${subjectPattern})\\b`, "i");
+    const absence = /\b(?:absence|without|no|not\s+(?:yet\s+)?(?:show|have|include|demonstrated)|limited|needs?|gain|lack(?:s|ing)?|missing|gap(?:s)?)\b|lacking/i;
+    return String(rawCombined)
+      .split(/[.!?]+/)
+      .map((sentence) => sentence.trim())
+      .filter(Boolean)
+      .some((sentence) => {
+        if (!subject.test(sentence)) return false;
+        const isAbsent = absence.test(sentence)
+          || new RegExp(
+            String.raw`\b(?:${subjectPattern})\b[^.]{0,40}\b(?:absent|missing|not\s+(?:yet\s+)?(?:present|shown|demonstrated))\b`,
+            "i"
+          ).test(sentence);
+        return mode === "present" ? !isAbsent : isAbsent;
+      });
+  };
+
+  if (sentenceMentions("internship|internships?", "present") && !hasEvidenceSignal("internship")) {
     errors.push("output contains unsupported internship claim");
   }
 
+  if (sentenceMentions("internship|internships?", "absent") && hasEvidenceSignal("internship")) {
+    errors.push("output contradicts verified internship evidence");
+  }
+
   if (
-    /\bgithub\b|\bcode portfolio\b/.test(combined) &&
-    !hasFact("code_portfolio")
+    sentenceMentions("leadership|technical team coordinator|team coordinator", "present")
+    && !hasEvidenceSignal("leadership")
+  ) {
+    errors.push("output contains unsupported leadership claim");
+  }
+
+  if (sentenceMentions("leadership", "absent") && hasEvidenceSignal("leadership")) {
+    errors.push("output contradicts verified leadership evidence");
+  }
+
+  if (
+    sentenceMentions("github|code portfolio", "present")
+    && !hasEvidenceSignal("code_portfolio")
   ) {
     errors.push("output contains unsupported GitHub claim");
   }
 
   if (
-    /\bcertif(?:icate|ication|ied)\b/.test(combined) &&
-    !hasFact("certification") &&
-    !hasFact("certification_detail")
+    sentenceMentions("certif(?:icate|ication|ied)", "present")
+    && !hasEvidenceSignal("certification")
   ) {
     errors.push("output contains unsupported certification claim");
   }

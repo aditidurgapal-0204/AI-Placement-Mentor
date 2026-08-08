@@ -346,6 +346,14 @@ const groundingFailureCategory = (errors) => {
   }
 
   if (
+    message.includes("unsupported")
+    || message.includes("contradict")
+    || message.includes("unapproved project")
+  ) {
+    return "unsupported_evidence_claim";
+  }
+
+  if (
     message.includes("required")
     || message.includes("must")
   ) {
@@ -397,6 +405,11 @@ console.log(generatedValue);
       validateGeminiGrounding(output, dto);
 
     if (!grounding.valid) {
+      console.warn("Gemini language grounding rejected", {
+        analysisId: snapshot.metadata?.id,
+        failureCategory: groundingFailureCategory(grounding.errors),
+        groundingErrors: grounding.errors
+      });
       return {
         ...fallback(),
 
@@ -418,6 +431,10 @@ console.dir(output, { depth: null });
       output
     };
   } catch (error) {
+    console.warn("Gemini language generation failed; using deterministic fallback", {
+      analysisId: snapshot.metadata?.id,
+      error: error.message
+    });
     const groundingErrors = [
       error.message
     ];

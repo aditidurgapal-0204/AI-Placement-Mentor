@@ -12,6 +12,7 @@ const fs = require("fs");
 const prisma = require("../lib/prisma");
 const authMiddleware = require("../middleware/authMiddleware");
 const { signup } = require("../controllers/signupController");
+const { dumpPdfExtraction } = require("../services/debug/resumeExtractionDump");
 
 const router = express.Router();
 
@@ -440,6 +441,17 @@ resumeText = Object.keys(rows)
       .join(" ")
   )
   .join("\n");
+
+      try {
+        dumpPdfExtraction({
+          userId,
+          originalName: req.file.originalname,
+          resumeText,
+          resumeUrl
+        });
+      } catch (dumpError) {
+        console.warn("[resume-debug] PDF dump failed:", dumpError.message);
+      }
     }
 
     await prisma.placementProfile.update({

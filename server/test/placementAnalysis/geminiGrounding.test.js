@@ -79,3 +79,79 @@ test("grounding prevents career risks from claiming current-score causality", ()
   assert.equal(result.valid, false);
   assert.ok(result.errors.some((error) => error.includes("must not claim current score causality")));
 });
+
+test("grounding rejects absence claims that contradict verified internship evidence", () => {
+  const input = validGeminiInput();
+  input.strengths.push({
+    id: "strength-internship",
+    type: "internship",
+    facts: { capability: "internship", exists: true, organization: "Acme" }
+  });
+  const output = validOutput();
+  output.diagnosis = `${output.diagnosis} The absence of internship experience remains a gap.`;
+  const result = validateGeminiGrounding(output, input);
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((error) => error.includes("contradicts verified internship evidence")));
+});
+
+test("grounding rejects absence claims that contradict verified leadership evidence", () => {
+  const input = validGeminiInput();
+  input.strengths.push({
+    id: "strength-leadership",
+    type: "leadership_strength",
+    facts: { role: "Technical Team Coordinator", organization: "Enginium" }
+  });
+  const output = validOutput();
+  output.diagnosis = `${output.diagnosis} There is no demonstrated leadership experience yet.`;
+  const result = validateGeminiGrounding(output, input);
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((error) => error.includes("contradicts verified leadership evidence")));
+});
+
+test("grounding allows absence phrasing for internship gaps including compound lacking", () => {
+  const input = validGeminiInput();
+  input.careerRisks[0] = {
+    id: "risk-1",
+    type: "professional_exposure_gap",
+    facts: { capability: "internship" },
+    affectsCurrentScore: false
+  };
+  const output = validOutput();
+  output.careerRisks[0].text = "You currently have a gap in professional exposure, specificallylacking internship experience.";
+  output.diagnosis = "You have a practical technical base that supports your current placement preparation. Your implementation work is the clearest advantage for the role you selected. Greater consistency in a core interview subject is currently limiting your readiness. Improve that subject first through regular practice, then keep building on the project work that already helps your profile.";
+  assert.deepEqual(validateGeminiGrounding(output, input), { valid: true, errors: [] });
+});
+
+test("grounding accepts The TREKKA project phrasing when TREKKA is approved", () => {
+  const input = validGeminiInput();
+  input.strengths[0] = {
+    id: "strength-1",
+    type: "project_strength",
+    facts: { project: { name: "TREKKA", technologies: ["Python", "Flask"] } }
+  };
+  const output = validOutput();
+  output.diagnosis = "You have a practical technical base that supports your current placement preparation. The TREKKA project showcases useful applied machine learning practice for the selected role. Greater consistency in a core interview subject is currently limiting your readiness. Improve that subject first through regular practice, then keep building on the project work that already helps your profile.";
+  output.strengths[0].text = "The TREKKA project showcases useful applied machine learning practice for the selected role.";
+  assert.deepEqual(validateGeminiGrounding(output, input), { valid: true, errors: [] });
+});
+
+test("grounding allows leadership claims when leadership strength is present", () => {
+  const input = validGeminiInput();
+  input.strengths.push({
+    id: "strength-leadership",
+    type: "leadership_strength",
+    facts: { role: "Technical Team Coordinator", organization: "Enginium" }
+  });
+  const output = {
+    analysisId: "analysis-test",
+    diagnosis: "You have a practical technical base that supports your current placement preparation. Leadership as Technical Team Coordinator at Enginium strengthens responsibility evidence for recruiters. Greater consistency in a core interview subject is currently limiting your readiness score today. Improve that subject first through regular practice while keeping the leadership proof visible on your resume.",
+    strengths: [
+      { insightId: "strength-1", text: "Practical technical execution provides a useful role foundation." },
+      { insightId: "strength-leadership", text: "Technical Team Coordinator at Enginium shows leadership beyond coursework." }
+    ],
+    scoreBlockers: [{ insightId: "blocker-1", text: "A core interview subject needs more consistent practice for the selected role." }],
+    careerRisks: [{ insightId: "risk-1", text: "More workplace experience would make your responsibility easier for recruiters to judge." }],
+    priority: { insightId: "priority-1", text: "Build consistent practice in the core subject that most affects your current readiness." }
+  };
+  assert.deepEqual(validateGeminiGrounding(output, input), { valid: true, errors: [] });
+});

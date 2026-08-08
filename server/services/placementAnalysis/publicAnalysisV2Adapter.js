@@ -12,6 +12,13 @@ const publicLanguageInsight = (item) => ({
   text: item.text
 });
 
+const buildReadinessExplanation = (snapshot) => {
+  const score = Number(snapshot.readiness.score);
+  const label = labelFor(snapshot.readiness.labelKey);
+  const role = String(snapshot.context?.targetRole || "your target role").trim();
+  return `You are currently at ${score}% readiness (${label}) for a ${role} track. This reflects the verified profile and resume evidence available for this analysis.`;
+};
+
 const createPublicAnalysisV2 = (snapshot, language) => {
   if (!snapshot?.metadata?.id) {
     throw new Error("A valid mentor analysis snapshot is required.");
@@ -34,6 +41,7 @@ const createPublicAnalysisV2 = (snapshot, language) => {
       score: snapshot.readiness.score,
       label: labelFor(snapshot.readiness.labelKey),
       labelKey: snapshot.readiness.labelKey,
+      explanation: buildReadinessExplanation(snapshot),
 
       nextLevel: {
         label: labelFor(snapshot.readiness.nextLabelKey),
@@ -81,4 +89,4 @@ const createPublicAnalysisV2 = (snapshot, language) => {
   return response;
 };
 
-module.exports = { createPublicAnalysisV2 };
+module.exports = { createPublicAnalysisV2, buildReadinessExplanation };

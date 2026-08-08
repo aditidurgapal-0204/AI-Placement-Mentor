@@ -18,9 +18,17 @@ const parseOrganization = (textLine) => {
 };
 
 const isActualInternshipTitle = (line) => {
-  const normalized = line.toLowerCase().replace(/[-\u2013\u2014]/g, " ").replace(/\s+/g, " ");
+  const normalized = line.toLowerCase().replace(/[-\u2013\u2014]/g, " ").replace(/\s+/g, " ").trim();
+  if (/\b(?:internal|international|internet|interval|internship\s+preparation)\b/.test(normalized)) {
+    return false;
+  }
+
   const internshipTitle = /\b(?:software engineer|software developer|web developer|frontend developer|front end developer|backend developer|back end developer|full stack developer|data science|data analyst|machine learning|research|devops|qa|quality assurance|sde|engineering)\s+intern\b|\bintern\s+(?:software|web|frontend|front end|backend|back end|full stack|data science|data analyst|machine learning|research|devops|qa|quality assurance|sde|engineering)\b/;
-  return internshipTitle.test(normalized);
+  if (internshipTitle.test(normalized)) return true;
+
+  // Broader experience-section titles: "Intern", "Internship at Acme", "Summer Intern | Company"
+  return /(?:^|\b)(?:summer|winter|product|software|engineering|research)?\s*intern(?:ship)?(?:\b|$)/.test(normalized)
+    && normalized.length <= 120;
 };
 
 const extractCertificationEntries = (certificationSection) => {

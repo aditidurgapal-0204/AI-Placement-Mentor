@@ -45,8 +45,8 @@ const projectFacts = ({ value }) => ({
 const technicalFamily = (capabilities) => {
   const set = new Set(capabilities || []);
   if (set.has("fullStack") || (set.has("frontend") && set.has("backend"))) return "end_to_end_delivery";
-  if (set.has("machine_learning")) return "applied_machine_learning";
-  if (set.has("data")) return "data_practice";
+  if (set.has("machineLearning") || set.has("machine_learning")) return "applied_machine_learning";
+  if (set.has("data") || set.has("dataEngineering") || set.has("dataAnalysis")) return "data_practice";
   if (set.has("frontend")) return "interface_engineering";
   if (set.has("backend")) return "service_engineering";
   return "technical_execution";
@@ -183,6 +183,8 @@ const buildScoreBlockers = (ledger, evidence, context) => {
     const maximum = maximumPoints(contribution);
 
     if (earned < 0) {
+      // Company difficulty is score context, not a student-facing action item.
+      if (category === "target_alignment") continue;
       add({
         id: `blocker-${category}`,
         type: "score_penalty",
@@ -293,17 +295,38 @@ const buildPreparation = (evidence, score) => {
   };
 };
 
+const ACTIONABLE_CAREER_RISK_RANK = {
+  deployment_gap: 8,
+  cloud_experience_gap: 7.5,
+  scalability_experience_gap: 7,
+  professional_exposure_gap: 6.5,
+  portfolio_verifiability_gap: 5,
+  technical_evidence_gap: 4
+};
+
+const isNonActionableTargetAlignment = (item) =>
+  item?.type === "score_penalty" && item?.facts?.category === "target_alignment";
+
 const selectPriority = ({ scoreBlockers, careerRisks, strengths, preparation }) => {
+  const actionableBlockers = scoreBlockers.filter((item) => !isNonActionableTargetAlignment(item));
   const candidates = [
-    ...scoreBlockers.map((item) => ({
+    ...actionableBlockers.map((item) => ({
       item,
       sourceType: "score_blocker",
-      rank: Math.abs(item.scoring?.penaltyPoints || item.scoring?.gapPoints || 0)
+      rank: 10 + Math.abs(item.scoring?.penaltyPoints || item.scoring?.gapPoints || 0)
     })),
-    ...careerRisks.map((item) => ({ item, sourceType: "career_risk", rank: 0.5 + item.confidence.value }))
+    ...careerRisks.map((item) => ({
+      item,
+      sourceType: "career_risk",
+      rank: ACTIONABLE_CAREER_RISK_RANK[item.type] || (0.5 + item.confidence.value)
+    }))
   ].sort((a, b) => b.rank - a.rank);
 
-  const selected = candidates[0];
+  // Target-alignment penalties explain difficulty; they are not a useful first action.
+  const selected = candidates[0]
+    || (scoreBlockers.find(isNonActionableTargetAlignment)
+      ? { item: scoreBlockers.find(isNonActionableTargetAlignment), sourceType: "score_blocker" }
+      : null);
   const source = selected?.item || strengths[0];
   if (!source) throw new Error("A traceable insight is required to select a priority.");
 

@@ -55,6 +55,7 @@ const generateAnalysis = async (req, res) => {
 
     // 6. Package database entries into a clean structured profile data payload
     const packedProfileData = {
+      userId,
       branch: profile.branch,
       year: profile.year,
       cgpa: profile.cgpa,

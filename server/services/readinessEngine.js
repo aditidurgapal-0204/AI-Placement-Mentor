@@ -13,6 +13,8 @@ const { rankResumeEvidence } = require("./readiness/evidenceRanker");
 const { extractLeadershipItems } = require("./readiness/structuredProjectEvidence");
 const { buildAnalysisFacts } = require("./readiness/analysisFactsBuilder");
 const { adaptScoreBreakdownToLedger } = require("./placementAnalysis/scoreLedgerAdapter");
+const { detectSections } = require("./resume/sectionDetector");
+const { dumpStructuredExtraction } = require("./debug/resumeExtractionDump");
 
 const computeReadiness = (profileData) => {
   if (!profileData) {
@@ -34,6 +36,22 @@ const computeReadiness = (profileData) => {
   const resumeEvidence = extractResumeMetrics(profileData.resumeText, canonicalProjectFacts);
   const leadershipItems = extractLeadershipItems(profileData.resumeText);
   const rankedEvidence = rankResumeEvidence(resumeEvidence, canonicalRole, leadershipItems);
+
+  try {
+    dumpStructuredExtraction({
+      userId: profileData.userId || profileData.id || null,
+      targetRole: profileData.targetRole,
+      companyType: profileData.companyType,
+      canonicalRole,
+      resumeText: profileData.resumeText,
+      sections: detectSections(profileData.resumeText || ""),
+      projects: canonicalProjectFacts,
+      resumeEvidence,
+      leadershipItems
+    });
+  } catch (dumpError) {
+    console.warn("[resume-debug] structured dump failed:", dumpError.message);
+  }
   // 3. Quantitative Score Calculation Pass
   const scoreBreakdown = calculateReadinessScoreBreakdown(
     profileData.skills,
