@@ -349,6 +349,7 @@ const groundingFailureCategory = (errors) => {
     message.includes("unsupported")
     || message.includes("contradict")
     || message.includes("unapproved project")
+    || message.includes("unapproved skill")
   ) {
     return "unsupported_evidence_claim";
   }
@@ -361,6 +362,23 @@ const groundingFailureCategory = (errors) => {
   }
 
   return "generator_unavailable";
+};
+
+/**
+ * LANGUAGE_PASS_UNGROUNDED_GEMINI
+ * - missing / true / 1 / on / yes → pass parsed Gemini even when grounding fails (DEFAULT ON)
+ * - false / 0 / off / no → strict mode: grounding fail → deterministic fallback
+ */
+const isPassUngroundedGeminiEnabled = (env = process.env) => {
+  const raw = env.LANGUAGE_PASS_UNGROUNDED_GEMINI;
+  if (raw === undefined || raw === null || String(raw).trim() === "") {
+    return true;
+  }
+  const normalized = String(raw).trim().toLowerCase();
+  if (["false", "0", "off", "no"].includes(normalized)) {
+    return false;
+  }
+  return true;
 };
 
 const generateAnalysisLanguage = async (
@@ -384,6 +402,10 @@ const generateAnalysisLanguage = async (
     return fallback();
   }
 
+  const passUngrounded = options.passUngroundedGemini !== undefined
+    ? Boolean(options.passUngroundedGemini)
+    : isPassUngroundedGeminiEnabled();
+
   try {
     const generated = generate({
       prompt: buildLanguagePrompt(dto),
@@ -405,20 +427,33 @@ console.log(generatedValue);
       validateGeminiGrounding(output, dto);
 
     if (!grounding.valid) {
+      const failureCategory = groundingFailureCategory(grounding.errors);
       console.warn("Gemini language grounding rejected", {
         analysisId: snapshot.metadata?.id,
-        failureCategory: groundingFailureCategory(grounding.errors),
-        groundingErrors: grounding.errors
+        failureCategory,
+        groundingErrors: grounding.errors,
+        passUngroundedGemini: passUngrounded
       });
+
+      if (passUngrounded) {
+        console.warn("Passing ungrounded Gemini language to UI (feature flag enabled)", {
+          analysisId: snapshot.metadata?.id
+        });
+        return {
+          source: "gemini",
+          dto,
+          output,
+          groundingErrors: grounding.errors,
+          failureCategory,
+          groundingBypassed: true
+        };
+      }
+
       return {
         ...fallback(),
-
         groundingErrors: grounding.errors,
-
-        failureCategory:
-          groundingFailureCategory(
-            grounding.errors
-          )
+        failureCategory,
+        groundingBypassed: false
       };
     }
 
@@ -456,5 +491,6 @@ module.exports = {
   createPresentationSafeGeminiDto,
   buildLanguagePrompt,
   groundingFailureCategory,
+  isPassUngroundedGeminiEnabled,
   generateAnalysisLanguage
 };

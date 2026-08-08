@@ -40,8 +40,11 @@ const analyzePlacementProfileV2 = async (profileData, options = {}) => {
     reasoningVersion: snapshot.metadata.modelVersions.reasoning,
     scoreModelVersion: snapshot.metadata.modelVersions.scoring,
     languageSource: language.source,
-    groundingStatus: language.groundingErrors?.length ? "rejected_or_unavailable" : "accepted",
+    groundingStatus: language.groundingErrors?.length
+      ? (language.groundingBypassed ? "bypassed" : "rejected_or_unavailable")
+      : "accepted",
     groundingFailureCategory: language.failureCategory || null,
+    groundingBypassed: language.groundingBypassed === true,
     fallbackUsed: language.source === "deterministic_fallback",
     durationMs: Date.now() - startedAt
   });
