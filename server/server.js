@@ -4,6 +4,7 @@ const cors = require("cors");
 const aiRoutes = require('./routes/aiRoutes');
 const authRoutes = require("./routes/authRoutes");
 const resumeRoutes = require("./routes/resumeRoutes");
+const mockInterviewRoutes = require("./routes/mockInterviewRoutes");
 
 const app = express();
 
@@ -14,6 +15,7 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/resume", resumeRoutes);
+app.use("/api/mock-interview", mockInterviewRoutes);
 
 app.get("/", (req, res) => {
   res.send("Backend Server Running");

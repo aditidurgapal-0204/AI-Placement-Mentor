@@ -309,7 +309,7 @@ export default function Home() {
             </Link>
 
             {/* Card 3 */}
-            <div className="rounded-3xl border border-purple-500/20 bg-slate-900/40 backdrop-blur-sm p-10 hover:border-purple-500/50 transition-all duration-300">
+            <Link href="/mock-interview" className="block cursor-pointer rounded-3xl border border-purple-500/20 bg-slate-900/40 backdrop-blur-sm p-10 hover:border-purple-500/50 transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
 
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center mb-8">
                 <Mic size={30} />
@@ -320,10 +320,10 @@ export default function Home() {
               </h3>
 
               <p className="text-gray-400 text-lg leading-relaxed">
-                Practice with AI-powered mock interviews that simulate real scenarios. Get real-time feedback and improve your communication skills.
+                Practice realistic AI-powered interviews, then receive a detailed performance report after completion.
               </p>
 
-            </div>
+            </Link>
 
             {/* Card 4 */}
             <div className="rounded-3xl border border-purple-500/20 bg-slate-900/40 backdrop-blur-sm p-10 hover:border-purple-500/50 transition-all duration-300">
