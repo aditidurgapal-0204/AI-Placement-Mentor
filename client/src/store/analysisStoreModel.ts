@@ -1,6 +1,7 @@
 import { AnalysisV2, parseAnalysisV2 } from "../lib/analysisV2Contract";
 import { AdaptedAnalysisResponse, LegacyAnalysis } from "../lib/analysisResponseAdapter";
 import { sanitizeProfileData } from "../lib/analysisResponseAdapter";
+import { PlacementRoadmap, parsePlacementRoadmap } from "../lib/roadmapContract";
 
 export type AnalysisStatus = "idle" | "loading" | "success" | "error";
 export type ActiveAnalysisVersion = "legacy" | "v2" | null;
@@ -17,12 +18,13 @@ export interface StableAnalysisState {
   analysisStatus: AnalysisStatus;
   analysisError: string | null;
   v2ValidationStatus: V2ValidationStatus;
+  roadmap: PlacementRoadmap | null;
 }
 
 export const initialAnalysisState = (): StableAnalysisState => ({
   analysis: null, legacyAnalysis: null, analysisV2: null, profileData: null,
   activeAnalysisVersion: null, latestRequestedRequestId: null, latestAcceptedRequestId: null,
-  analysisStatus: "idle", analysisError: null, v2ValidationStatus: "unavailable"
+  analysisStatus: "idle", analysisError: null, v2ValidationStatus: "unavailable", roadmap: null
 });
 
 export const beginAnalysisState = (state: StableAnalysisState, requestId: string): StableAnalysisState => ({
@@ -56,7 +58,8 @@ export const acceptAnalysisState = (
     latestAcceptedRequestId: response.analysisV2?.requestId || clientRequestId,
     analysisStatus: "success",
     analysisError: response.v2ValidationStatus === "invalid" ? "Version 2 analysis was unavailable; legacy analysis remains active." : null,
-    v2ValidationStatus: response.v2ValidationStatus
+    v2ValidationStatus: response.v2ValidationStatus,
+    roadmap: response.roadmap ? structuredClone(response.roadmap) : null
   };
 };
 
@@ -87,5 +90,6 @@ export const migrateAnalysisPersistedState = (persisted: unknown): StableAnalysi
     migrated.analysisV2 = null;
     migrated.v2ValidationStatus = "invalid";
   }
+  migrated.roadmap = parsePlacementRoadmap(source.roadmap);
   return migrated;
 };

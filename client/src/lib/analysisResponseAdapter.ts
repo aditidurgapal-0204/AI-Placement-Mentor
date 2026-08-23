@@ -1,4 +1,5 @@
 import { AnalysisV2, AnalysisV2ValidationError, parseAnalysisV2 } from "./analysisV2Contract";
+import { PlacementRoadmap, parsePlacementRoadmap } from "./roadmapContract";
 
 export interface LegacyAnalysis {
   readinessScore: number;
@@ -13,6 +14,7 @@ export interface AdaptedAnalysisResponse {
   analysisV2: AnalysisV2 | null;
   v2ValidationStatus: "valid" | "unavailable" | "invalid";
   profileData: unknown;
+  roadmap: PlacementRoadmap | null;
 }
 
 export class FatalAnalysisResponseError extends Error {
@@ -58,13 +60,13 @@ export const adaptAnalysisResponse = (value: unknown): AdaptedAnalysisResponse =
   if (!object(value) || value.success !== true) throw new FatalAnalysisResponseError();
   const legacyAnalysis = parseLegacyAnalysis(value.analysis);
   if (value.analysisV2 === undefined || value.analysisV2 === null) {
-    return { legacyAnalysis, analysisV2: null, v2ValidationStatus: "unavailable", profileData: sanitizeProfileData(value.profileData) };
+    return { legacyAnalysis, analysisV2: null, v2ValidationStatus: "unavailable", profileData: sanitizeProfileData(value.profileData), roadmap: parsePlacementRoadmap(value.roadmap) };
   }
   try {
-    return { legacyAnalysis, analysisV2: parseAnalysisV2(value.analysisV2), v2ValidationStatus: "valid", profileData: sanitizeProfileData(value.profileData) };
+    return { legacyAnalysis, analysisV2: parseAnalysisV2(value.analysisV2), v2ValidationStatus: "valid", profileData: sanitizeProfileData(value.profileData), roadmap: parsePlacementRoadmap(value.roadmap) };
   } catch (error) {
     if (!(error instanceof AnalysisV2ValidationError)) throw error;
-    return { legacyAnalysis, analysisV2: null, v2ValidationStatus: "invalid", profileData: sanitizeProfileData(value.profileData) };
+    return { legacyAnalysis, analysisV2: null, v2ValidationStatus: "invalid", profileData: sanitizeProfileData(value.profileData), roadmap: parsePlacementRoadmap(value.roadmap) };
   }
 };
 

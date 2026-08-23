@@ -38,14 +38,14 @@ export const useAnalysisStore = create<AnalysisStore>()(
         if (!activeRequestId) return;
         get().acceptAnalysisResponse(activeRequestId, {
           legacyAnalysis: structuredClone(analysis), analysisV2: null,
-          v2ValidationStatus: "unavailable", profileData: structuredClone(profileData)
+          v2ValidationStatus: "unavailable", profileData: structuredClone(profileData), roadmap: null
         });
       },
       clearAnalysisData: () => set(initialAnalysisState())
     }),
     {
       name: "placement-analysis-store",
-      version: 3,
+      version: 4,
       migrate: (persistedState) => migrateAnalysisPersistedState(persistedState),
       partialize: (state) => ({
         analysis: state.analysis,
@@ -54,7 +54,8 @@ export const useAnalysisStore = create<AnalysisStore>()(
         profileData: state.profileData,
         activeAnalysisVersion: state.activeAnalysisVersion,
         latestAcceptedRequestId: state.latestAcceptedRequestId,
-        v2ValidationStatus: state.v2ValidationStatus
+        v2ValidationStatus: state.v2ValidationStatus,
+        roadmap: state.roadmap
       })
     }
   )

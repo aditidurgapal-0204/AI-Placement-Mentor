@@ -293,7 +293,7 @@ export default function Home() {
             </div>
 
             {/* Card 2 */}
-            <div className="rounded-3xl border border-purple-500/20 bg-slate-900/40 backdrop-blur-sm p-10 hover:border-purple-500/50 transition-all duration-300">
+            <Link href="/resume-analyzer" className="block cursor-pointer rounded-3xl border border-purple-500/20 bg-slate-900/40 backdrop-blur-sm p-10 hover:border-purple-500/50 transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
 
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center mb-8">
                 <FileText size={30} />
@@ -306,7 +306,7 @@ export default function Home() {
               <p className="text-gray-400 text-lg leading-relaxed">
                 Get intelligent feedback on your resume. Our AI highlights improvements, suggests keywords, and ensures your resume stands out to recruiters.
               </p>
-            </div>
+            </Link>
 
             {/* Card 3 */}
             <div className="rounded-3xl border border-purple-500/20 bg-slate-900/40 backdrop-blur-sm p-10 hover:border-purple-500/50 transition-all duration-300">

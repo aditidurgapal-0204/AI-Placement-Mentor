@@ -1,6 +1,7 @@
 const prisma = require("../lib/prisma");
 const geminiService = require("../services/geminiService");
 const productionAnalysisService = require("../services/placementAnalysis/productionAnalysisService");
+const roadmapService = require("../services/roadmapService");
 const { randomUUID } = require("node:crypto");
 
 // POST /api/ai/generate-analysis
@@ -81,7 +82,26 @@ const generateAnalysis = async (req, res) => {
     const { analysis: aiAnalysisResult, analysisV2 } = await productionAnalysisService
       .analyzePlacementProfileV2(packedProfileData, { requestId });
 
-    // 8. Return structured production JSON response format carrying the AI service output
+    // 8. Continue the existing analysis pipeline into a month-wise roadmap.
+    // Roadmap generation is deliberately non-persistent here: it must never make
+    // the established placement-analysis request fail due to roadmap storage.
+    const roadmapProfile = {
+      ...packedProfileData,
+      resumeAvailable: hasResumeText
+    };
+    let roadmap = null;
+    try {
+      roadmap = await roadmapService.generateRoadmap(roadmapProfile, analysisV2, { requestId });
+    } catch (roadmapError) {
+      // The roadmap is an additive stage. Never convert a successful placement
+      // analysis into an HTTP 500 if this stage encounters an unexpected error.
+      console.error("Roadmap stage failed after successful placement analysis", {
+        requestId,
+        message: roadmapError.message
+      });
+    }
+
+    // 9. Return structured production JSON response format carrying the AI service output
     console.info("Placement analysis response returned", { requestId, userId });
     return res.status(200).json({
       success: true,
@@ -91,6 +111,7 @@ const generateAnalysis = async (req, res) => {
       resumeTextAvailable: hasResumeText,
       analysis: aiAnalysisResult, // 🧠 Contains readinessScore, strengths, weaknesses, etc.
       analysisV2,
+      roadmap,
       profileData: {
         branch: profile.branch,
         year: profile.year,

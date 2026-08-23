@@ -33,6 +33,11 @@ const envelope = (analysisV2: unknown = v2(), analysis: unknown = legacy()) => (
   success: true, analysis, analysisV2,
   profileData: { id: "profile-1", branch: "CSE", resumeText: "private resume", resumeAvailable: true }
 });
+const roadmap = () => ({
+  contractVersion: "1.0", durationMonths: 2, targetRole: "Backend Developer", source: "gemini",
+  roadmap: [1, 2].map((month) => ({ month, title: `Stage ${month}`, focus: `Focus ${month}`,
+    topics: [`Topic ${month}A`, `Topic ${month}B`], goals: [`Goal ${month}A`, `Goal ${month}B`] }))
+});
 
 test("valid analysisV2 is parsed into a new normalized object with ordering preserved", () => {
   const input = v2();
@@ -50,6 +55,15 @@ test("valid legacy and V2 are stored separately", () => {
   assert.equal(accepted.analysisV2?.analysisId, "analysis-v2");
   assert.notEqual(accepted.analysis, adapted.legacyAnalysis);
   assert.equal(JSON.stringify(accepted.profileData).includes("resumeText"), false);
+});
+
+test("valid roadmap is accepted and persisted with analysis while malformed roadmap is discarded", () => {
+  const adapted = adaptAnalysisResponse({ ...envelope(), roadmap: roadmap() });
+  const accepted = acceptAnalysisState(beginAnalysisState(initialAnalysisState(), "client-1"), "client-1", adapted);
+  assert.equal(accepted.roadmap?.roadmap.length, 2);
+  assert.notEqual(accepted.roadmap, adapted.roadmap);
+  assert.equal(adaptAnalysisResponse({ ...envelope(), roadmap: { durationMonths: 2, roadmap: [] } }).roadmap, null);
+  assert.equal(migrateAnalysisPersistedState({ analysis: legacy(), roadmap: roadmap() }).roadmap?.targetRole, "Backend Developer");
 });
 
 test("missing analysisV2 preserves legacy behavior", () => {

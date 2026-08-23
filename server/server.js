@@ -3,6 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const aiRoutes = require('./routes/aiRoutes');
 const authRoutes = require("./routes/authRoutes");
+const resumeRoutes = require("./routes/resumeRoutes");
 
 const app = express();
 
@@ -12,6 +13,7 @@ app.use(express.json());
 // Main App Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/resume", resumeRoutes);
 
 app.get("/", (req, res) => {
   res.send("Backend Server Running");

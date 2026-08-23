@@ -3,9 +3,10 @@
 import React from 'react';
 import { useAnalysisStore } from "@/store/useAnalysisStore";
 import { selectDashboardAnalysis } from "@/lib/dashboardAnalysisCompatibility";
+import { PlacementRoadmap } from "@/components/dashboard/PlacementRoadmap";
 
 export default function DashboardPage() {
-  const { analysis: legacyAnalysis, analysisV2 } = useAnalysisStore();
+  const { analysis: legacyAnalysis, analysisV2, roadmap } = useAnalysisStore();
   const analysis = selectDashboardAnalysis(legacyAnalysis, analysisV2);
 
   if (!analysis) {
@@ -174,14 +175,14 @@ export default function DashboardPage() {
           </div>
 
           {/* SECTION 5 — PLACEMENT ACTION PLAN */}
-          <section className="space-y-5">
-            <h2 className="text-lg font-bold tracking-tight text-slate-200 sm:text-xl">Placement Action Plan</h2>
-            <div className="rounded-2xl border border-dashed border-white/[0.08] bg-white/[0.01] px-6 py-12 text-center shadow-inner">
-              <p className="text-sm font-medium tracking-wide text-slate-500 sm:text-base">
-                Your personalized placement roadmap will appear here.
-              </p>
-            </div>
-          </section>
+          {roadmap ? <PlacementRoadmap roadmap={roadmap} /> : (
+            <section className="space-y-5">
+              <h2 className="text-lg font-bold tracking-tight text-slate-200 sm:text-xl">Placement Action Plan</h2>
+              <div className="rounded-2xl border border-amber-500/15 bg-amber-500/[0.04] px-6 py-8 text-center">
+                <p className="text-sm text-amber-100/80">Your analysis is available, but the roadmap could not be loaded. Generate a new analysis to rebuild it safely.</p>
+              </div>
+            </section>
+          )}
 
         </div>
       </div>

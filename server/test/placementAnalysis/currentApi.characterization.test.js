@@ -83,7 +83,7 @@ test("current analysis controller response shape remains characterized", async (
   assert.equal(statusCode, 200);
   assert.deepEqual(Object.keys(body).sort(), [
     "analysis", "analysisV2", "profileData", "profileFound", "resumeTextAvailable",
-    "resumeUploaded", "success", "userFound"
+    "resumeUploaded", "roadmap", "success", "userFound"
   ]);
   assert.deepEqual(Object.keys(body.analysis).sort(), [
     "diagnosis", "readinessScore", "strengthFacts", "strengths", "weaknesses"
@@ -95,4 +95,7 @@ test("current analysis controller response shape remains characterized", async (
   assert.equal(Object.hasOwn(body.profileData, "resumeText"), false);
   assert.equal(body.resumeUploaded, false);
   assert.equal(body.resumeTextAvailable, false);
+  assert.equal(body.roadmap.contractVersion, "1.0");
+  assert.equal(body.roadmap.durationMonths, placementProfile.preparationTimelineMonths);
+  assert.equal(body.roadmap.roadmap.length, placementProfile.preparationTimelineMonths);
 });
