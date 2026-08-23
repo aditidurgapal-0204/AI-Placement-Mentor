@@ -12,7 +12,7 @@ import {
   Brain,
   FileText,
   Mic,
-  TrendingUp,
+  Gauge,
 } from 'lucide-react';
 
 export default function Home() {
@@ -277,7 +277,23 @@ export default function Home() {
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
 
             {/* Card 1 */}
-            <div className="rounded-3xl border border-purple-500/20 bg-slate-900/40 backdrop-blur-sm p-10 hover:border-purple-500/50 transition-all duration-300">
+            <button type="button" onClick={() => setView('LOGIN')} className="block w-full cursor-pointer rounded-3xl border border-purple-500/20 bg-slate-900/40 backdrop-blur-sm p-10 text-left hover:border-purple-500/50 transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
+
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center mb-8">
+                <Gauge size={30} />
+              </div>
+
+              <h3 className="text-3xl font-bold mb-6">
+                AI Readiness Analysis
+              </h3>
+
+              <p className="text-gray-400 text-lg leading-relaxed">
+                Analyze your skills, resume, strengths, and gaps to understand your placement readiness.
+              </p>
+            </button>
+
+            {/* Card 2 */}
+            <button type="button" onClick={() => setView('LOGIN')} className="block w-full cursor-pointer rounded-3xl border border-purple-500/20 bg-slate-900/40 backdrop-blur-sm p-10 text-left hover:border-purple-500/50 transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
 
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center mb-8">
                 <Brain size={30} />
@@ -288,11 +304,11 @@ export default function Home() {
               </h3>
 
               <p className="text-gray-400 text-lg leading-relaxed">
-                Get customized learning paths tailored to your skills, goals, and timeline. Our AI analyzes your strengths and weaknesses to create the perfect roadmap.
+                Get a personalized preparation path based on your skills, goals, and placement timeline.
               </p>
-            </div>
+            </button>
 
-            {/* Card 2 */}
+            {/* Card 3 */}
             <Link href="/resume-analyzer" className="block cursor-pointer rounded-3xl border border-purple-500/20 bg-slate-900/40 backdrop-blur-sm p-10 hover:border-purple-500/50 transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
 
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center mb-8">
@@ -308,7 +324,7 @@ export default function Home() {
               </p>
             </Link>
 
-            {/* Card 3 */}
+            {/* Card 4 */}
             <Link href="/mock-interview" className="block cursor-pointer rounded-3xl border border-purple-500/20 bg-slate-900/40 backdrop-blur-sm p-10 hover:border-purple-500/50 transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
 
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center mb-8">
@@ -322,25 +338,7 @@ export default function Home() {
               <p className="text-gray-400 text-lg leading-relaxed">
                 Practice realistic AI-powered interviews, then receive a detailed performance report after completion.
               </p>
-
             </Link>
-
-            {/* Card 4 */}
-            <div className="rounded-3xl border border-purple-500/20 bg-slate-900/40 backdrop-blur-sm p-10 hover:border-purple-500/50 transition-all duration-300">
-
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center mb-8">
-                <TrendingUp size={30} />
-              </div>
-
-              <h3 className="text-3xl font-bold mb-6">
-                Progress Analytics
-              </h3>
-
-              <p className="text-gray-400 text-lg leading-relaxed">
-                Track your progress with detailed analytics. Visualize your growth, identify areas for improvement, and celebrate your achievements.
-              </p>
-
-            </div>
           </div>
         </div>
       </section>

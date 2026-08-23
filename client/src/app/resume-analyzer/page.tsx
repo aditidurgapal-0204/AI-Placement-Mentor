@@ -107,7 +107,7 @@ export default function ResumeAnalyzerPage() {
           <section className="mx-auto max-w-3xl text-center">
             <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl border border-purple-400/30 bg-purple-500/10 text-purple-300 shadow-[0_0_30px_rgba(168,85,247,0.18)]"><FileText size={30} /></div>
             <p className="mb-3 text-xs font-bold uppercase tracking-[0.25em] text-purple-400">AI Resume Analyzer</p>
-            <h1 className="bg-gradient-to-r from-white via-purple-100 to-blue-200 bg-clip-text text-4xl font-black tracking-tight text-transparent sm:text-6xl">Optimize Your Resume for Better Opportunities</h1>
+            <h1 className="bg-gradient-to-r from-white via-purple-100 to-blue-200 bg-clip-text text-3xl font-bold tracking-tight text-transparent sm:text-4xl">Optimize Your Resume for Better Opportunities</h1>
             <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-slate-400 sm:text-lg">Upload your resume for a deterministic ATS score, evidence-based section feedback, and specific improvements—no account required.</p>
           </section>
           <form onSubmit={submit} className="mx-auto mt-12 max-w-2xl rounded-3xl border border-purple-500/20 bg-white/[0.035] p-5 shadow-2xl backdrop-blur-xl sm:p-8">
