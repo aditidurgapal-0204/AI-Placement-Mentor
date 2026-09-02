@@ -8,6 +8,7 @@ import PlacementGoals from '@/components/setup/PlacementGoals';
 import CurrentSkills from '@/components/setup/CurrentSkills'; 
 import TimeInformation from "@/components/setup/TimeInformation";
 import ResumeProfile from "@/components/setup/ResumeProfile"; // 🚀 Step 5 Import
+import { apiUrl } from "@/lib/api";
 
 export interface SetupFormData {
   branch: string;
@@ -67,7 +68,7 @@ export default function SetupPage() {
     if (!token) return;
 
     try {
-      await fetch("http://localhost:8000/api/auth/save-onboarding-step", {
+      await fetch(apiUrl("/api/auth/save-onboarding-step"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -94,7 +95,7 @@ export default function SetupPage() {
       uploadPayload.append("resume", file);
     }
 
-    const res = await fetch("http://localhost:8000/api/auth/save-resume-step", {
+    const res = await fetch(apiUrl("/api/auth/save-resume-step"), {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${token}`
@@ -155,7 +156,7 @@ export default function SetupPage() {
     const token = localStorage.getItem("token");
 
     try {
-      const res = await fetch("http://localhost:8000/api/auth/save-onboarding-step", {
+      const res = await fetch(apiUrl("/api/auth/save-onboarding-step"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -191,7 +192,7 @@ export default function SetupPage() {
       }
 
       try {
-        const profileRes = await fetch("http://localhost:8000/api/auth/profile", {
+        const profileRes = await fetch(apiUrl("/api/auth/profile"), {
           headers: { "Authorization": `Bearer ${token}` }
         });
         

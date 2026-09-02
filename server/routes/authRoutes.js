@@ -1,50 +1,33 @@
 console.log("Auth Routes Loaded");
-const { PdfReader } = require("pdfreader");
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const multer = require("multer");
-const pdfParse = require('pdf-parse');
-const path = require("path");
-const fs = require("fs");
+const { createHash } = require("node:crypto");
 
 const prisma = require("../lib/prisma");
 const authMiddleware = require("../middleware/authMiddleware");
 const { signup } = require("../controllers/signupController");
 const { dumpPdfExtraction } = require("../services/debug/resumeExtractionDump");
+const { extractPdfTextFromBuffer } = require("../services/publicPdfTextExtractor");
+const { config, isEmailConfigured } = require("../config/env");
 
 const router = express.Router();
 
 // =================================================================
 // EMAIL UTILITIES & CONFIGURATIONS
 // =================================================================
-const transporter = nodemailer.createTransport({
-  host: "smtp.ethereal.email",
-  port: 587,
-  auth: {
-    user: "curtis38@ethereal.email",
-    pass: "CCeTqF48dk8uWc4PfD",
-  },
-});
+const createTransporter = () => isEmailConfigured() ? nodemailer.createTransport({
+  host: config.smtp.host,
+  port: config.smtp.port,
+  secure: config.smtp.secure,
+  auth: { user: config.smtp.user, pass: config.smtp.pass }
+}) : null;
 
 // =================================================================
 // LOCAL FILE UPLOAD (MULTER ENGINE) FOR STEP 5
 // =================================================================
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadDir = path.join(__dirname, '../uploads/resumes');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'resume-' + req.user.userId + '-' + uniqueSuffix + '.pdf');
-  }
-});
-
 const fileFilter = (req, file, cb) => {
   if (file.mimetype === 'application/pdf') {
     cb(null, true);
@@ -54,7 +37,7 @@ const fileFilter = (req, file, cb) => {
 };
 
 const upload = multer({ 
-  storage: storage,
+  storage: multer.memoryStorage(),
   fileFilter: fileFilter,
   limits: { fileSize: 5 * 1024 * 1024 } // 5MB Limit
 });
@@ -82,11 +65,7 @@ router.post("/login", async (req, res) => {
       where: { email: email.trim().toLowerCase() },
     });
 
-    if (!user) {
-      return res.status(400).json({
-        message: "User not found",
-      });
-    }
+    if (!user) return res.status(400).json({ message: "Invalid credentials" });
 
     const isMatch = await bcrypt.compare(password, user.password);
 
@@ -96,9 +75,10 @@ router.post("/login", async (req, res) => {
       });
     }
 
+    if (!config.jwtSecret) return res.status(503).json({ message: "Authentication is temporarily unavailable." });
     const token = jwt.sign(
       { userId: user.id },
-      "secretkey",
+      config.jwtSecret,
       { expiresIn: "7d" }
     );
 
@@ -131,26 +111,26 @@ router.post("/forgot-password", async (req, res) => {
       });
     }
 
+    if (!config.passwordResetSecret || !isEmailConfigured()) {
+      return res.status(503).json({ message: "Password reset email is temporarily unavailable." });
+    }
     const user = await prisma.user.findUnique({
       where: { email: email.trim().toLowerCase() },
     });
 
-    if (!user) {
-      return res.status(400).json({
-        message: "User not found",
-      });
-    }
+    const safeMessage = "If an account exists for that email, a reset link has been sent.";
+    if (!user) return res.status(200).json({ message: safeMessage });
 
     const resetToken = jwt.sign(
-      { userId: user.id },
-      "resetsecret",
+      { userId: user.id, passwordVersion: createHash("sha256").update(user.password).digest("hex") },
+      config.passwordResetSecret,
       { expiresIn: "15m" }
     );
 
-    const resetLink = `http://localhost:3000/reset-password/${resetToken}`;
+    const resetLink = `${config.clientUrl}/reset-password/${encodeURIComponent(resetToken)}`;
 
-    const info = await transporter.sendMail({
-      from: process.env.EMAIL_USER,
+    await createTransporter().sendMail({
+      from: config.smtp.from,
       to: email.trim(),
       subject: "Reset Your Password",
       html: `
@@ -177,20 +157,41 @@ router.post("/forgot-password", async (req, res) => {
       `,
     });
 
-    console.log(
-      "Preview URL:",
-      nodemailer.getTestMessageUrl(info)
-    );
-
     res.status(200).json({
-      message: "Reset email sent successfully",
+      message: safeMessage,
     });
 
   } catch (error) {
-    console.log(error);
+    console.error("Password reset email request failed");
     res.status(500).json({
-      message: "Server Error",
+      message: "Password reset could not be started. Please try again later.",
     });
+  }
+});
+
+router.post("/reset-password", async (req, res) => {
+  try {
+    const token = typeof req.body?.token === "string" ? req.body.token : "";
+    const password = typeof req.body?.password === "string" ? req.body.password : "";
+    if (!token || !password) return res.status(400).json({ message: "Reset token and new password are required." });
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/.test(password)) {
+      return res.status(400).json({ message: "Password must be at least 6 characters and include uppercase, lowercase and numeric characters." });
+    }
+    if (!config.passwordResetSecret) return res.status(503).json({ message: "Password reset is temporarily unavailable." });
+    const payload = jwt.verify(token, config.passwordResetSecret);
+    if (!payload?.userId || !payload?.passwordVersion) throw new Error("INVALID_RESET_TOKEN");
+    const user = await prisma.user.findUnique({ where: { id: payload.userId } });
+    const currentVersion = user && createHash("sha256").update(user.password).digest("hex");
+    if (!user || currentVersion !== payload.passwordVersion) throw new Error("INVALID_RESET_TOKEN");
+    const hashedPassword = await bcrypt.hash(password, 10);
+    await prisma.user.update({ where: { id: user.id }, data: { password: hashedPassword } });
+    return res.status(200).json({ message: "Password reset successfully. You can now log in." });
+  } catch (error) {
+    if (error?.name === "TokenExpiredError" || error?.name === "JsonWebTokenError" || error?.message === "INVALID_RESET_TOKEN") {
+      return res.status(400).json({ message: "This password reset link is invalid or has expired." });
+    }
+    console.error("Password reset completion failed");
+    return res.status(500).json({ message: "Password reset could not be completed. Please try again later." });
   }
 });
 
@@ -385,7 +386,11 @@ router.post("/save-onboarding-step", authMiddleware, async (req, res) => {
 // =================================================================
 // 🚀 NEW: STEP 5 RESUME FILE HANDLER AND EXTRACTION SYSTEM
 // =================================================================
-router.post("/save-resume-step", authMiddleware, upload.single('resume'), async (req, res) => {
+router.post("/save-resume-step", authMiddleware, (req, res, next) => upload.single('resume')(req, res, (error) => {
+  if (!error) return next();
+  if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") return res.status(413).json({ message: "The PDF must be 5 MB or smaller." });
+  return res.status(400).json({ message: "The resume upload could not be processed." });
+}), async (req, res) => {
   try {
     const userId = req.user.userId;
     const { isSkipped } = req.body; 
@@ -395,52 +400,8 @@ router.post("/save-resume-step", authMiddleware, upload.single('resume'), async 
 
     // A. Parse and extract text only if file buffer transmission is detected
     if (req.file && isSkipped !== 'true') {
-      resumeUrl = `/uploads/resumes/${req.file.filename}`;
-      
-      const rows = {};
-
-await new Promise((resolve, reject) => {
-
-  new PdfReader().parseFileItems(req.file.path, (err, item) => {
-
-    if (err) {
-      reject(err);
-      return;
-    }
-
-    if (!item) {
-      resolve(true);
-      return;
-    }
-
-    if (item.text) {
-
-      const y = item.y.toFixed(1);
-
-      if (!rows[y]) {
-        rows[y] = [];
-      }
-
-      rows[y].push({
-        x: item.x,
-        text: item.text
-      });
-    }
-
-  });
-
-});
-
-// Reconstruct lines in reading order
-resumeText = Object.keys(rows)
-  .sort((a, b) => parseFloat(a) - parseFloat(b))
-  .map(y =>
-    rows[y]
-      .sort((a, b) => a.x - b.x)
-      .map(i => i.text)
-      .join(" ")
-  )
-  .join("\n");
+      resumeUrl = "processed-in-memory";
+      resumeText = await extractPdfTextFromBuffer(req.file.buffer);
 
       try {
         dumpPdfExtraction({
@@ -479,7 +440,7 @@ resumeText = Object.keys(rows)
 
   } catch (error) {
     console.error("Step 5 transactional processing context baseline crash:", error);
-    return res.status(500).json({ message: error.message || "Internal server error parsing file data." });
+    return res.status(500).json({ message: "Internal server error parsing file data." });
   }
 });
 

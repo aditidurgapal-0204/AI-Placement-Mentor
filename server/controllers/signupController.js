@@ -1,6 +1,7 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const prisma = require("../lib/prisma");
+const { config } = require("../config/env");
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/;
@@ -22,6 +23,7 @@ const signup = async (req, res) => {
         message: "Password must be at least 6 characters and include uppercase, lowercase and numeric characters."
       });
     }
+    if (!config.jwtSecret) return res.status(503).json({ message: "Authentication is temporarily unavailable." });
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) return res.status(409).json({ message: "An account with this email already exists." });
@@ -37,7 +39,7 @@ const signup = async (req, res) => {
       }
     });
 
-    const token = jwt.sign({ userId: newUser.id }, "secretkey", { expiresIn: "7d" });
+    const token = jwt.sign({ userId: newUser.id }, config.jwtSecret, { expiresIn: "7d" });
     return res.status(201).json({
       message: "User created successfully",
       token,

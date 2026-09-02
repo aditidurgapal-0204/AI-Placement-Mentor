@@ -2,6 +2,8 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const bcrypt = require("bcryptjs");
 
+process.env.JWT_SECRET = "test-only-jwt-secret";
+
 const prismaPath = require.resolve("../lib/prisma");
 const controllerPath = require.resolve("../controllers/signupController");
 

@@ -5,6 +5,7 @@ import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
 import { X } from 'lucide-react';
+import { apiUrl } from '@/lib/api';
 
 export default function SignupForm() {
   // 🚀 2. INITIALIZE THE NAVIGATION ENGINE
@@ -67,7 +68,7 @@ export default function SignupForm() {
     submissionInProgress.current = true;
     setIsSubmitting(true);
     try {
-      const response = await fetch("http://localhost:8000/api/auth/signup", {
+      const response = await fetch(apiUrl("/api/auth/signup"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

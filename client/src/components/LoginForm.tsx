@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
 import { X } from 'lucide-react';
+import { apiUrl } from '@/lib/api';
 
 export default function LoginForm() {
   const router = useRouter();
@@ -15,7 +16,7 @@ export default function LoginForm() {
 
  const handleLogin = async () => {
     try {
-      const response = await fetch("http://localhost:8000/api/auth/login", {
+      const response = await fetch(apiUrl("/api/auth/login"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

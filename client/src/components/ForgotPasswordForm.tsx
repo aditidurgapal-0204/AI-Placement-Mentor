@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { X } from 'lucide-react';
+import { apiUrl } from '@/lib/api';
 
 export default function ForgotPasswordForm() {
   const { closeModal } = useAuthStore();
@@ -14,7 +15,7 @@ export default function ForgotPasswordForm() {
   const handleForgotPassword = async () => {
     try {
       const response = await fetch(
-        "http://localhost:8000/api/auth/forgot-password",
+        apiUrl("/api/auth/forgot-password"),
         {
           method: "POST",
           headers: {

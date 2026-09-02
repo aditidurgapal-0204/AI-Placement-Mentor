@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Brain, Check, FileText, RotateCcw, ShieldCheck, Sparkles, Upload, X } from "lucide-react";
+import { apiUrl } from "@/lib/api";
 
 interface Breakdown { category: string; score: number; maxScore: number }
 interface SectionFeedback { section: string; status: "Strong" | "Present" | "Needs Improvement" | "Missing"; feedback: string }
@@ -73,7 +74,7 @@ export default function ResumeAnalyzerPage() {
     try {
       const form = new FormData();
       form.append("resume", file);
-      const response = await fetch("http://localhost:8000/api/resume/analyze", { method: "POST", body: form, headers: { "X-Request-ID": crypto.randomUUID() } });
+      const response = await fetch(apiUrl("/api/resume/analyze"), { method: "POST", body: form, headers: { "X-Request-ID": crypto.randomUUID() } });
       const payload: unknown = await response.json();
       const envelope = payload && typeof payload === "object" ? payload as Record<string, unknown> : {};
       if (!response.ok) throw new Error(typeof envelope.message === "string" ? envelope.message : "We couldn’t analyze this resume. Please try again.");

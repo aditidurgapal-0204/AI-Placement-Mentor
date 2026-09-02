@@ -12,6 +12,7 @@ const ensureDebugDir = () => {
 const stamp = () => new Date().toISOString().replace(/[:.]/g, "-");
 
 const writeTextFile = (filename, contents) => {
+  if (process.env.NODE_ENV === "production" || process.env.ENABLE_RESUME_DEBUG_DUMPS !== "true") return null;
   ensureDebugDir();
   const filePath = path.join(DEBUG_DIR, filename);
   fs.writeFileSync(filePath, contents, "utf8");

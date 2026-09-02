@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const { config } = require("../config/env");
 
 const authMiddleware = (req, res, next) => {
   try {
@@ -20,14 +21,15 @@ const authMiddleware = (req, res, next) => {
     }
 
     // 3. Verify the clean, isolated token string
-    const decoded = jwt.verify(token, "secretkey");
+    if (!config.jwtSecret) throw new Error("Authentication is not configured");
+    const decoded = jwt.verify(token, config.jwtSecret);
 
     // Attach user data to request object
     req.user = decoded;
 
     next();
   } catch (error) {
-    console.error("Middleware Auth Verification Error:", error.message);
+    if (process.env.NODE_ENV !== "production") console.error("Middleware auth verification failed");
     return res.status(401).json({
       message: "Invalid token",
     });

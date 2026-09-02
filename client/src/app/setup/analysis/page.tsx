@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAnalysisStore } from "@/store/useAnalysisStore";
 import { adaptAnalysisResponse } from "@/lib/analysisResponseAdapter";
+import { apiUrl } from "@/lib/api";
 
 interface AnalysisStep {
   id: number;
@@ -53,7 +54,7 @@ function AnalysisContent() {
     beginAnalysis(requestId);
     try {
       const response = await fetch(
-        "http://localhost:8000/api/ai/generate-analysis",
+        apiUrl("/api/ai/generate-analysis"),
         {
           method: "POST",
           headers: {

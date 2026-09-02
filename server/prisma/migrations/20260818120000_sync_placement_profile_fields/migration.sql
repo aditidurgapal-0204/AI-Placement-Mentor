@@ -1,0 +1,12 @@
+-- AlterTable
+ALTER TABLE "PlacementProfile"
+ADD COLUMN "aptitude" TEXT NOT NULL DEFAULT '',
+ADD COLUMN "communication" TEXT NOT NULL DEFAULT '',
+ADD COLUMN "dbms" TEXT NOT NULL DEFAULT '',
+ADD COLUMN "dsa" TEXT NOT NULL DEFAULT '',
+ADD COLUMN "networks" TEXT NOT NULL DEFAULT '',
+ADD COLUMN "os" TEXT NOT NULL DEFAULT '',
+ADD COLUMN "dailyStudyHours" INTEGER,
+ADD COLUMN "preparationTimelineMonths" INTEGER,
+ADD COLUMN "resumeText" TEXT,
+ADD COLUMN "resumeUrl" TEXT;

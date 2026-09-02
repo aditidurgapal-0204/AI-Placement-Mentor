@@ -151,7 +151,7 @@ const testGeminiConnection = async (req, res) => {
     console.error("❌ Gemini API Connection Test Failed:", error);
     return res.status(500).json({
       success: false,
-      error: error.message || "Failed to establish validation handshake with Gemini nodes.",
+      error: "Failed to establish validation handshake with Gemini.",
     });
   }
 };
