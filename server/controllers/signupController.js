@@ -37,7 +37,11 @@ const signup = async (req, res) => {
       }
     });
 
-    const token = jwt.sign({ userId: newUser.id }, "secretkey", { expiresIn: "7d" });
+    const token = jwt.sign(
+      { userId: newUser.id },
+      process.env.JWT_SECRET || "secretkey",
+      { expiresIn: "7d" }
+    );
     return res.status(201).json({
       message: "User created successfully",
       token,
