@@ -1,4 +1,5 @@
 "use client";
+import { API_BASE_URL } from "@/lib/api";
 
 import Link from "next/link";
 import { ChangeEvent, FormEvent, useRef, useState } from "react";
@@ -46,7 +47,7 @@ export default function MockInterviewPage() {
     try {
       const form = new FormData(); form.append("type", mode); form.append("questionLimit", String(questionLimit));
       if (mode === "technical") { form.append("targetRole", targetRole); form.append("resume", resume as File); }
-      const response = await fetch("http://localhost:8000/api/mock-interview/start", { method: "POST", body: form, headers: { "X-Request-ID": crypto.randomUUID() } });
+      const response = await fetch(`${API_BASE_URL}/api/mock-interview/start`, { method: "POST", body: form, headers: { "X-Request-ID": crypto.randomUUID() } });
       const payload: unknown = await response.json(); const body = payload as { interview?: InterviewStart };
       if (!response.ok || !body.interview?.interviewId || !body.interview.question) throw new Error(messageFrom(payload, "The interview could not be started. Please try again."));
       setInterview(body.interview); setQuestionNumber(1); setQuestion(body.interview.question); setAnswer(""); setScreen("interview");
@@ -60,7 +61,7 @@ export default function MockInterviewPage() {
     if (!answer.trim()) return setError("Type an answer before submitting.");
     setPending(true); setError(null);
     try {
-      const response = await fetch(`http://localhost:8000/api/mock-interview/${encodeURIComponent(interview.interviewId)}/answer`, { method: "POST", headers: { "Content-Type": "application/json", "X-Request-ID": crypto.randomUUID() }, body: JSON.stringify({ answer: answer.trim() }) });
+      const response = await fetch(`${API_BASE_URL}/api/mock-interview/${encodeURIComponent(interview.interviewId)}/answer`, { method: "POST", headers: { "Content-Type": "application/json", "X-Request-ID": crypto.randomUUID() }, body: JSON.stringify({ answer: answer.trim() }) });
       const payload: unknown = await response.json(); const body = payload as { complete?: boolean; questionNumber?: number; question?: string; report?: InterviewReport };
       if (!response.ok) throw new Error(messageFrom(payload, "Your answer could not be processed. It is still available below so you can retry."));
       if (body.complete) {

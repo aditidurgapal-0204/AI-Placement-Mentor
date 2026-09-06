@@ -1,4 +1,5 @@
-'use client';
+﻿'use client';
+import { API_BASE_URL } from "@/lib/api";
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -67,7 +68,7 @@ export default function SetupPage() {
     if (!token) return;
 
     try {
-      await fetch("http://localhost:8000/api/auth/save-onboarding-step", {
+      await fetch(`${API_BASE_URL}/api/auth/save-onboarding-step`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -94,7 +95,7 @@ export default function SetupPage() {
       uploadPayload.append("resume", file);
     }
 
-    const res = await fetch("http://localhost:8000/api/auth/save-resume-step", {
+    const res = await fetch(`${API_BASE_URL}/api/auth/save-resume-step`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${token}`
@@ -155,7 +156,7 @@ export default function SetupPage() {
     const token = localStorage.getItem("token");
 
     try {
-      const res = await fetch("http://localhost:8000/api/auth/save-onboarding-step", {
+      const res = await fetch(`${API_BASE_URL}/api/auth/save-onboarding-step`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -191,7 +192,7 @@ export default function SetupPage() {
       }
 
       try {
-        const profileRes = await fetch("http://localhost:8000/api/auth/profile", {
+        const profileRes = await fetch(`${API_BASE_URL}/api/auth/profile`, {
           headers: { "Authorization": `Bearer ${token}` }
         });
         

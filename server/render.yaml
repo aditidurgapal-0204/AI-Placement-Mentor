@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: ai-placement-mentor-api
+    runtime: node
+    region: oregon
+    plan: free
+    rootDir: server
+    buildCommand: npm install && npx prisma generate
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_RESET_SECRET
+        generateValue: true
+      - key: CLIENT_URL
+        sync: false
+      - key: BLOB_READ_WRITE_TOKEN
+        sync: false
+      - key: LANGUAGE_PASS_UNGROUNDED_GEMINI
+        value: "true"
+      - key: NODE_ENV
+        value: production

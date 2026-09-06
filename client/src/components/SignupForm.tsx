@@ -1,4 +1,5 @@
-'use client';
+﻿'use client';
+import { API_BASE_URL } from "@/lib/api";
 
 import { useRef, useState } from 'react';
 // 🚀 1. IMPORT THE ROUTER HOOK
@@ -67,7 +68,7 @@ export default function SignupForm() {
     submissionInProgress.current = true;
     setIsSubmitting(true);
     try {
-      const response = await fetch("http://localhost:8000/api/auth/signup", {
+      const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -5,9 +5,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const multer = require("multer");
-const pdfParse = require('pdf-parse');
-const path = require("path");
-const fs = require("fs");
+const { put } = require("@vercel/blob");
 
 const prisma = require("../lib/prisma");
 const authMiddleware = require("../middleware/authMiddleware");
@@ -29,34 +27,20 @@ const transporter = nodemailer.createTransport({
 });
 
 // =================================================================
-// LOCAL FILE UPLOAD (MULTER ENGINE) FOR STEP 5
+// IN-MEMORY UPLOAD (MULTER) FOR STEP 5 — file goes to Vercel Blob
 // =================================================================
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadDir = path.join(__dirname, '../uploads/resumes');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'resume-' + req.user.userId + '-' + uniqueSuffix + '.pdf');
-  }
-});
-
 const fileFilter = (req, file, cb) => {
-  if (file.mimetype === 'application/pdf') {
+  if (file.mimetype === "application/pdf") {
     cb(null, true);
   } else {
-    cb(new Error('Invalid layout file format. Only PDFs are authorized.'), false);
+    cb(new Error("Invalid layout file format. Only PDFs are authorized."), false);
   }
 };
 
-const upload = multer({ 
-  storage: storage,
+const upload = multer({
+  storage: multer.memoryStorage(),
   fileFilter: fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB Limit
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB Limit
 });
 
 // =================================================================
@@ -98,7 +82,7 @@ router.post("/login", async (req, res) => {
 
     const token = jwt.sign(
       { userId: user.id },
-      "secretkey",
+      process.env.JWT_SECRET || "secretkey",
       { expiresIn: "7d" }
     );
 
@@ -143,11 +127,11 @@ router.post("/forgot-password", async (req, res) => {
 
     const resetToken = jwt.sign(
       { userId: user.id },
-      "resetsecret",
+      process.env.JWT_RESET_SECRET || "resetsecret",
       { expiresIn: "15m" }
     );
 
-    const resetLink = `http://localhost:3000/reset-password/${resetToken}`;
+    const resetLink = `${process.env.CLIENT_URL || "http://localhost:3000"}/reset-password/${resetToken}`;
 
     const info = await transporter.sendMail({
       from: process.env.EMAIL_USER,
@@ -383,71 +367,57 @@ router.post("/save-onboarding-step", authMiddleware, async (req, res) => {
 });
 
 // =================================================================
-// 🚀 NEW: STEP 5 RESUME FILE HANDLER AND EXTRACTION SYSTEM
+// 🚀 STEP 5 RESUME FILE HANDLER — uploads to Vercel Blob
 // =================================================================
 router.post("/save-resume-step", authMiddleware, upload.single('resume'), async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { isSkipped } = req.body; 
-    
+    const { isSkipped } = req.body;
+
     let resumeUrl = null;
     let resumeText = null;
 
-    // A. Parse and extract text only if file buffer transmission is detected
+    // A. Upload to Vercel Blob + extract text only if a file was transmitted
     if (req.file && isSkipped !== 'true') {
-      resumeUrl = `/uploads/resumes/${req.file.filename}`;
-      
+      // Upload buffer directly to Vercel Blob — returns a permanent CDN URL
+      const blobResult = await put(
+        `resumes/${userId}-${Date.now()}.pdf`,
+        req.file.buffer,
+        { access: "public", contentType: "application/pdf" }
+      );
+      resumeUrl = blobResult.url;
+
+      // Extract text from in-memory buffer (no disk path needed)
       const rows = {};
-
-await new Promise((resolve, reject) => {
-
-  new PdfReader().parseFileItems(req.file.path, (err, item) => {
-
-    if (err) {
-      reject(err);
-      return;
-    }
-
-    if (!item) {
-      resolve(true);
-      return;
-    }
-
-    if (item.text) {
-
-      const y = item.y.toFixed(1);
-
-      if (!rows[y]) {
-        rows[y] = [];
-      }
-
-      rows[y].push({
-        x: item.x,
-        text: item.text
+      await new Promise((resolve, reject) => {
+        new PdfReader().parseBuffer(req.file.buffer, (err, item) => {
+          if (err) { reject(err); return; }
+          if (!item) { resolve(true); return; }
+          if (item.text) {
+            const y = item.y.toFixed(1);
+            if (!rows[y]) rows[y] = [];
+            rows[y].push({ x: item.x, text: item.text });
+          }
+        });
       });
-    }
 
-  });
-
-});
-
-// Reconstruct lines in reading order
-resumeText = Object.keys(rows)
-  .sort((a, b) => parseFloat(a) - parseFloat(b))
-  .map(y =>
-    rows[y]
-      .sort((a, b) => a.x - b.x)
-      .map(i => i.text)
-      .join(" ")
-  )
-  .join("\n");
+      // Reconstruct lines in reading order
+      resumeText = Object.keys(rows)
+        .sort((a, b) => parseFloat(a) - parseFloat(b))
+        .map(y =>
+          rows[y]
+            .sort((a, b) => a.x - b.x)
+            .map(i => i.text)
+            .join(" ")
+        )
+        .join("\n");
 
       try {
         dumpPdfExtraction({
           userId,
           originalName: req.file.originalname,
           resumeText,
-          resumeUrl
+          resumeUrl,
         });
       } catch (dumpError) {
         console.warn("[resume-debug] PDF dump failed:", dumpError.message);
@@ -458,23 +428,23 @@ resumeText = Object.keys(rows)
       where: { userId },
       data: {
         resumeUrl: resumeUrl,
-        resumeText: resumeText
-      }
+        resumeText: resumeText,
+      },
     });
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
         currentOnboardingStep: 5,
-        isOnboardingComplete: true // Marks setup as completely finished
-      }
+        isOnboardingComplete: true,
+      },
     });
 
     return res.status(200).json({
       success: true,
       currentOnboardingStep: updatedUser.currentOnboardingStep,
       isOnboardingComplete: updatedUser.isOnboardingComplete,
-      message: "Onboarding framework profile saved successfully. AI plan context compiled."
+      message: "Onboarding framework profile saved successfully. AI plan context compiled.",
     });
 
   } catch (error) {
@@ -484,3 +454,4 @@ resumeText = Object.keys(rows)
 });
 
 module.exports = router;
+

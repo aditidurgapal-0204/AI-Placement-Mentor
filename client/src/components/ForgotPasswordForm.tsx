@@ -1,4 +1,5 @@
-'use client';
+﻿'use client';
+import { API_BASE_URL } from "@/lib/api";
 
 import { useState } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -14,7 +15,7 @@ export default function ForgotPasswordForm() {
   const handleForgotPassword = async () => {
     try {
       const response = await fetch(
-        "http://localhost:8000/api/auth/forgot-password",
+        `${API_BASE_URL}/api/auth/forgot-password`,
         {
           method: "POST",
           headers: {

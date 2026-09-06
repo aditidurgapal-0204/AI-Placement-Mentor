@@ -20,7 +20,7 @@ const authMiddleware = (req, res, next) => {
     }
 
     // 3. Verify the clean, isolated token string
-    const decoded = jwt.verify(token, "secretkey");
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "secretkey");
 
     // Attach user data to request object
     req.user = decoded;

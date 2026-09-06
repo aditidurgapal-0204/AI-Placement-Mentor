@@ -1,4 +1,5 @@
-"use client";
+﻿"use client";
+import { API_BASE_URL } from "@/lib/api";
 
 import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -53,7 +54,7 @@ function AnalysisContent() {
     beginAnalysis(requestId);
     try {
       const response = await fetch(
-        "http://localhost:8000/api/ai/generate-analysis",
+        `${API_BASE_URL}/api/ai/generate-analysis`,
         {
           method: "POST",
           headers: {
