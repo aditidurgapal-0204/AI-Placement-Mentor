@@ -18,15 +18,18 @@ const extractIndividualProjectBlocks = (resumeText) => {
     .map(line => line.trim())
     .filter(Boolean);
 
+  const projectHeading = /^(?:PROJECTS?|ACADEMIC PROJECTS?|PERSONAL PROJECTS?|SELECTED PROJECTS?|PROJECT EXPERIENCE|PORTFOLIO|TECHNICAL PROJECTS?)$/i;
+  const sectionHeading = /^(EXTRA[- ]?CURRICULAR.*|CERTIFICATIONS?|ACHIEVEMENTS?|EDUCATION|(?:TECHNICAL )?SKILLS?(?:\s*&\s*TOOLS?)?|WORK EXPERIENCE|EXPERIENCE|LEADERSHIP|POSITIONS? OF RESPONSIBILITY|ACTIVITIES)$/i;
+
   const start = lines.findIndex(line =>
-    /^PROJECTS?$/i.test(line)
+    projectHeading.test(line)
   );
 
   if (start === -1) return [];
 
   const end = lines.findIndex((line, index) =>
     index > start &&
-    /^(EXTRA[- ]?CURRICULAR.*|CERTIFICATIONS?|ACHIEVEMENTS?|EDUCATION|(?:TECHNICAL )?SKILLS?(?:\s*&\s*TOOLS?)?|WORK EXPERIENCE|EXPERIENCE)$/i.test(line)
+    sectionHeading.test(line)
   );
 
   const projectLines =
@@ -46,13 +49,17 @@ const extractIndividualProjectBlocks = (resumeText) => {
 
     if (/^[•*-]\s*/.test(line)) return false;
 
-    if (line.length < 8) return false;
+    if (line.length < 4) return false;
 
     if (line.includes("|")) return true;
 
     if (/\(\s*(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+20\d{2}\s*[-–—]\s*(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+20\d{2}\s*\)/i.test(line)) return true;
 
-    return false;
+    if (/^(?:built|implemented|developed|designed|created|optimized|deployed|integrated|used|using|tech stack|technologies)\b/i.test(line)) return false;
+    if (/[.!?]$/.test(line)) return false;
+    const words = line.split(/\s+/);
+    const titleLikeWords = words.filter((word) => /^[A-Z0-9][A-Za-z0-9+#.-]*$/.test(word)).length;
+    return words.length <= 7 && titleLikeWords >= Math.ceil(words.length / 2);
   };
 
   for (const line of projectLines) {
@@ -130,6 +137,8 @@ const evaluateSingleProject = (projectText, canonicalRole, selectedCompanyKey) =
   "api"
 ],
     frontend: [
+  "frontend",
+  "front end",
   "react",
   "next.js",
   "next",
@@ -254,7 +263,9 @@ signals.authentication.some(k => containsSignal(text, k))
 text.includes("authentication")
 &&
 text.includes("secure")
-);
+)
+||
+/\bauthentication\b|\bauthorization\b|\blogin\b|\bsignup\b|\bjwt\b|\bbcrypt\b/i.test(text);
 
   let complexity = "Basic";
   let backendDepth = (hasBackend || hasScalability) && hasVerbs;

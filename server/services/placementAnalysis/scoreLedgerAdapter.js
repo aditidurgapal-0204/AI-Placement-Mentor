@@ -129,6 +129,8 @@ const adaptScoreBreakdownToLedger = (scoreBreakdown) => {
       scoreBreakdown.rawScore ?? adjustedTotal
     ),
 
+    rawTotal: adjustedTotal,
+
     adjustedTotal,
 
     targetDifficultyFactor: Number(

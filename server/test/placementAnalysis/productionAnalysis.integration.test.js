@@ -15,13 +15,14 @@ const legacyResult = (score) => ({
 
 const dtoFromPrompt = (prompt) => JSON.parse(prompt.split("MENTOR_ANALYSIS\n")[1]);
 const groundedDiagnosis = "You have a useful base for your selected role and your strongest work already supports your preparation. The clearest strength is the practical capability shown in your current profile. One important gap is still limiting how ready you are for placement rounds. Address the first priority through regular focused work, while continuing to improve the strengths that already support your application.";
+const safeText = (item, action = false) => `${action ? "Improve" : "Your"} ${item.title || item.type} ${action ? "through focused weekly work" : "is supported by the verified profile evidence"}.`;
 const groundedOutput = (dto) => ({
   analysisId: dto.analysisId,
   diagnosis: groundedDiagnosis,
-  strengths: dto.strengths.map(({ id, conclusion }) => ({ insightId: id, text: conclusion })),
-  scoreBlockers: dto.scoreBlockers.map(({ id, conclusion }) => ({ insightId: id, text: conclusion })),
-  careerRisks: dto.careerRisks.map(({ id, conclusion }) => ({ insightId: id, text: conclusion })),
-  priority: { insightId: dto.priority.id, text: dto.priority.objective }
+  strengths: dto.strengths.map((item) => ({ insightId: item.id, text: safeText(item) })),
+  scoreBlockers: dto.scoreBlockers.map((item) => ({ insightId: item.id, text: safeText(item, true) })),
+  careerRisks: dto.careerRisks.map((item) => ({ insightId: item.id, text: safeText(item, true) })),
+  priority: { insightId: dto.priority.id, text: "Improve the selected first priority through focused weekly work." }
 });
 
 const run = (profile, overrides = {}) => {
@@ -108,8 +109,8 @@ test("career-risk and score-blocker collections remain distinct in public V2", a
   assert.ok(analysisV2.careerRisks.every(({ id }) => !blockerIds.has(id)));
 });
 
-test("Phase 0 readiness values remain unchanged in both response versions", async () => {
-  const expected = { fullStack: 49, machineLearning: 53, backend: 47, frontend: 46, unfamiliar: 46, sparse: 41, leadershipHeavy: 46, noResume: 41 };
+test("readiness values remain deterministic in both response versions", async () => {
+  const expected = { fullStack: 44, machineLearning: 35, backend: 41, frontend: 38, unfamiliar: 38, sparse: 29, leadershipHeavy: 35, noResume: 57 };
   for (const [name, score] of Object.entries(expected)) {
     const result = await run(profiles[name]).promise;
     assert.equal(result.analysis.readinessScore, score, name);

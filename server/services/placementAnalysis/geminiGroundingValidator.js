@@ -429,19 +429,21 @@ const validateGeminiGrounding = (output, input) => {
 
   const sentenceMentions = (subjectPattern, mode) => {
     const subject = new RegExp(`\\b(?:${subjectPattern})\\b`, "i");
-    const absence = /\b(?:absence|without|no|not\s+(?:yet\s+)?(?:show|have|include|demonstrated)|limited|needs?|gain|lack(?:s|ing)?|missing|gap(?:s)?)\b|lacking/i;
+    const explicitAbsence = /\b(?:absence|without|no|not\s+(?:yet\s+)?(?:show|have|include|demonstrated)|limited|lack(?:s|ing)?|missing|gap(?:s)?)\b|lacking/i;
+    const requestedAction = /\b(?:needs?|gain|publish|build|complete|improve|add)\b/i;
     return String(rawCombined)
       .split(/[.!?]+/)
       .map((sentence) => sentence.trim())
       .filter(Boolean)
       .some((sentence) => {
         if (!subject.test(sentence)) return false;
-        const isAbsent = absence.test(sentence)
+        const isExplicitlyAbsent = explicitAbsence.test(sentence)
           || new RegExp(
             String.raw`\b(?:${subjectPattern})\b[^.]{0,40}\b(?:absent|missing|not\s+(?:yet\s+)?(?:present|shown|demonstrated))\b`,
             "i"
           ).test(sentence);
-        return mode === "present" ? !isAbsent : isAbsent;
+        if (mode === "absent") return isExplicitlyAbsent;
+        return !isExplicitlyAbsent && !requestedAction.test(sentence);
       });
   };
 
@@ -471,10 +473,8 @@ const validateGeminiGrounding = (output, input) => {
     errors.push("output contains unsupported GitHub claim");
   }
 
-  if (
-    sentenceMentions("certif(?:icate|ication|ied)", "present")
-    && !hasEvidenceSignal("certification")
-  ) {
+  const claimsCompletedCertification = /\b(?:earned|holds?|completed|received|obtained)\b[^.!?]{0,60}\b(?:certificate|certification)\b|\bcertified\b/i.test(rawCombined);
+  if (claimsCompletedCertification && !hasEvidenceSignal("certification")) {
     errors.push("output contains unsupported certification claim");
   }
 

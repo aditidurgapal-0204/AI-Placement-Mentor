@@ -59,7 +59,10 @@ const computeReadiness = (profileData) => {
     profileData.cgpa,
     canonicalRole,
     rules,
-    resumeEvidence
+    {
+      ...resumeEvidence,
+      resumeEvaluated: typeof profileData.resumeText === "string" && profileData.resumeText.trim().length > 0
+    }
   );
   const readinessScore = scoreBreakdown.score;
   const scoreLedger = adaptScoreBreakdownToLedger(scoreBreakdown);

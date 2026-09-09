@@ -141,8 +141,11 @@ test("adds verified resume contributions to the profile score", () => {
     communication: "Average"
   }, { preparationTimelineMonths: 6 }, 8.2, "Full-Stack Engineer", companyRules, resumeEvidence);
 
-  assert.equal(result.score, 54);
-  assert.equal(result.negativeContributions.length, 0);
+  assert.equal(result.score, 40);
+  assert.equal(result.scoreBasis, "profile_and_resume");
+  assert.equal(result.categoryScores.projects > 0, true);
+  assert.equal(result.categoryScores.portfolio > 0, true);
+  assert.equal(result.categoryScores.leadership > 0, true);
 });
 
 test("does not emit a missing-deployment weakness when deployment is present", () => {

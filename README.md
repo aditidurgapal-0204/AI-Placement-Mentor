@@ -25,7 +25,6 @@ Backend variables:
 - `CLIENT_URL` — frontend base URL used in reset links.
 - `CORS_ORIGINS` — comma-separated allowed browser origins.
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM` — SMTP delivery configuration. Without it, reset email safely reports unavailable.
-- `LANGUAGE_PASS_UNGROUNDED_GEMINI` — optional existing behavior flag; defaults on.
 - `ENABLE_RESUME_DEBUG_DUMPS` — optional local-only extraction diagnostics; leave unset in production.
 
 ```bash

@@ -1,4 +1,3 @@
-console.log("USING ANALYSIS FILE:", __filename);
 const {
   DTO_VERSION,
   validatePresentationSafeGeminiInput
@@ -17,15 +16,17 @@ const publicInsight = (insight) => ({
 
   type: insight.type,
 
+  title: insight.title || insight.type,
+
   facts: insight.facts || {},
 
-  ...(insight.scoring
-    ? {
-        scoring: {
-          ...insight.scoring
-        }
-      }
-    : {}),
+  evidence: {
+    projectExamples: (insight.supportingFacts?.projectExamples || []).slice(0, 2),
+    skillFacts: (insight.supportingFacts?.skillFacts || []).slice(0, 4),
+    academicFacts: (insight.supportingFacts?.academicFacts || []).slice(0, 1),
+    profileFacts: (insight.supportingFacts?.profileFacts || []).slice(0, 4),
+    resumeFacts: (insight.supportingFacts?.resumeFacts || []).slice(0, 4)
+  },
 
   ...(typeof insight.affectsCurrentScore === "boolean"
     ? {
@@ -82,8 +83,6 @@ const createPresentationSafeGeminiDto = (snapshot) => {
     priority: {
   id: snapshot.priority.id,
 
-  sourceId: snapshot.priority.sourceId,
-
   sourceType: snapshot.priority.sourceType,
 
   facts: snapshot.priority.facts,
@@ -107,8 +106,6 @@ const createPresentationSafeGeminiDto = (snapshot) => {
 
   priority: {
     id: snapshot.priority.id,
-
-    sourceId: snapshot.priority.sourceId,
 
     sourceType: snapshot.priority.sourceType,
 
@@ -364,23 +361,6 @@ const groundingFailureCategory = (errors) => {
   return "generator_unavailable";
 };
 
-/**
- * LANGUAGE_PASS_UNGROUNDED_GEMINI
- * - missing / true / 1 / on / yes → pass parsed Gemini even when grounding fails (DEFAULT ON)
- * - false / 0 / off / no → strict mode: grounding fail → deterministic fallback
- */
-const isPassUngroundedGeminiEnabled = (env = process.env) => {
-  const raw = env.LANGUAGE_PASS_UNGROUNDED_GEMINI;
-  if (raw === undefined || raw === null || String(raw).trim() === "") {
-    return true;
-  }
-  const normalized = String(raw).trim().toLowerCase();
-  if (["false", "0", "off", "no"].includes(normalized)) {
-    return false;
-  }
-  return true;
-};
-
 const generateAnalysisLanguage = async (
   snapshot,
   generate,
@@ -388,9 +368,6 @@ const generateAnalysisLanguage = async (
 ) => {
   const dto =
     createPresentationSafeGeminiDto(snapshot);
-
-    console.log("\n========== GEMINI DTO ==========");
-    console.dir(dto, { depth: null });
 
   const fallback = () => ({
     source: "deterministic_fallback",
@@ -401,10 +378,6 @@ const generateAnalysisLanguage = async (
   if (typeof generate !== "function") {
     return fallback();
   }
-
-  const passUngrounded = options.passUngroundedGemini !== undefined
-    ? Boolean(options.passUngroundedGemini)
-    : isPassUngroundedGeminiEnabled();
 
   try {
     const generated = generate({
@@ -417,9 +390,6 @@ const generateAnalysisLanguage = async (
       options.timeoutMs
     );
     
-    console.log("\n========== RAW GEMINI ==========");
-console.log(generatedValue);
-
     const output =
       parseGeneratedOutput(generatedValue);
 
@@ -427,39 +397,19 @@ console.log(generatedValue);
       validateGeminiGrounding(output, dto);
 
     if (!grounding.valid) {
-      const failureCategory = groundingFailureCategory(grounding.errors);
       console.warn("Gemini language grounding rejected", {
         analysisId: snapshot.metadata?.id,
-        failureCategory,
-        groundingErrors: grounding.errors,
-        passUngroundedGemini: passUngrounded
+        failureCategory: groundingFailureCategory(grounding.errors),
+        groundingErrors: grounding.errors
       });
-
-      if (passUngrounded) {
-        console.warn("Passing ungrounded Gemini language to UI (feature flag enabled)", {
-          analysisId: snapshot.metadata?.id
-        });
-        return {
-          source: "gemini",
-          dto,
-          output,
-          groundingErrors: grounding.errors,
-          failureCategory,
-          groundingBypassed: true
-        };
-      }
 
       return {
         ...fallback(),
         groundingErrors: grounding.errors,
-        failureCategory,
-        groundingBypassed: false
+        failureCategory: groundingFailureCategory(grounding.errors)
       };
     }
 
-  console.log("\n========== FINAL OUTPUT ==========");
-console.dir(output, { depth: null });
-  
     return {
       source: "gemini",
       dto,
@@ -491,6 +441,5 @@ module.exports = {
   createPresentationSafeGeminiDto,
   buildLanguagePrompt,
   groundingFailureCategory,
-  isPassUngroundedGeminiEnabled,
   generateAnalysisLanguage
 };
